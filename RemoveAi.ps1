@@ -105,6 +105,26 @@ foreach ($Path in $packagesPath) {
     Remove-FileZ -Path $Path -Recurse *>$null
 }
 
+#remove package installers in edge dir
+#installs Microsoft.Windows.Ai.Copilot.Provider
+$dir = "${env:ProgramFiles(x86)}\Microsoft"
+$folders = @(
+    'Edge',
+    'EdgeCore',
+    'EdgeWebView'
+)
+foreach ($folder in $folders) {
+    if ($folder -eq 'EdgeCore') {
+        #edge core doesnt have application folder
+        $fullPath = (Get-ChildItem -Path "$dir\$folder\*.*.*.*\copilot_provider_msix" -ErrorAction SilentlyContinue).FullName
+        
+    }
+    else {
+        $fullPath = (Get-ChildItem -Path "$dir\$folder\Application\*.*.*.*\copilot_provider_msix" -ErrorAction SilentlyContinue).FullName
+    }
+    if ($fullPath -ne $null) { Remove-Item -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 #remove any screenshots from recall
 Write-Host 'Removing Any Screenshots...'
 Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorAction SilentlyContinue
