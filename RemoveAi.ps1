@@ -82,6 +82,13 @@ foreach ($choice in $aipackages) {
 ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
 foreach ($sid in $users) { foreach ($PackageName in $eol) { Remove-Item "$store\EndOfLife\$sid\$PackageName" -force -ErrorAction SilentlyContinue >'' } }
 
+#remove recall optional feature 
+try {
+    Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -ErrorAction Stop
+}
+catch {
+    #hide error
+}
 
 
 Write-Host 'Removing Package Files...'
