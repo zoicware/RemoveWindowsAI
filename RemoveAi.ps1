@@ -83,8 +83,9 @@ foreach ($choice in $aipackages) {
 foreach ($sid in $users) { foreach ($PackageName in $eol) { Remove-Item "$store\EndOfLife\$sid\$PackageName" -force -ErrorAction SilentlyContinue >'' } }
 
 #remove recall optional feature 
+$ProgressPreference = 'SilentlyContinue'
 try {
-    Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -ErrorAction Stop
+    Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -ErrorAction Stop | Out-Null
 }
 catch {
     #hide error
