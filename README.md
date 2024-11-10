@@ -20,3 +20,6 @@ With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Co
  iwr https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveAi.ps1 | iex
  ```
  
+
+
+#### Working : 24H2 (26100.2161)
