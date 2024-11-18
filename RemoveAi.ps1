@@ -149,6 +149,17 @@ foreach ($folder in $folders) {
     if ($fullPath -ne $null) { Remove-Item -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
+
+#remove additional installers
+$inboxapps = 'C:\Windows\InboxApps'
+$installers = Get-ChildItem -Path $inboxapps -Filter '*Copilot*'
+foreach ($installer in $installers) {
+    takeown /f $installer.FullName *>$null
+    icacls $installer.FullName /grant administrators:F /t *>$null
+    Remove-Item -Path $installer.FullName -Force
+}
+
+
 #remove any screenshots from recall
 Write-Host 'Removing Any Screenshots...'
 Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorAction SilentlyContinue
