@@ -122,10 +122,12 @@ foreach ($Path in $packagesPath) {
     if ($path -like '*Photon*') {
         $command = "`$dlls = (Get-ChildItem -Path $Path -Filter *.dll).FullName; foreach(`$dll in `$dlls){Remove-item ""`$dll"" -force}"
         Run-Trusted -command $command
+        Start-Sleep 1
     }
     else {
         $command = "Remove-item ""$Path"" -force -recurse"
         Run-Trusted -command $command
+        Start-Sleep 1
     }
 }
 
