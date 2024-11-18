@@ -40,6 +40,49 @@ Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'HubsSidebarEnabled' /t R
 gpupdate /force >$null
 
 
+#prefire copilot nudges package by deleting the registry keys 
+$keys = @(
+    'registry::HKCR\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
+    'registry::HKCR\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa',
+    'registry::HKCR\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+    'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications\Backup\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+    'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
+    'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.mca',
+    'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa'
+)
+#get full paths and remove
+$fullkey = @()
+foreach ($key in $keys) {
+    try {
+        $fullKey = Get-Item -Path $key -ErrorAction Stop
+        if ($null -eq $fullkey) { continue }
+        if ($fullkey.Length -gt 1) {
+            foreach ($multikey in $fullkey) {
+                $command = "Remove-Item -Path `"registry::$multikey`" -Force -Recurse"
+                Run-Trusted -command $command
+                Start-Sleep 1
+                #remove any regular admin that have trusted installer bug
+                Remove-Item -Path "registry::$multikey" -Force -Recurse -ErrorAction SilentlyContinue
+            }
+        }
+        else {
+            $command = "Remove-Item -Path `"registry::$fullKey`" -Force -Recurse"
+            Run-Trusted -command $command
+            Start-Sleep 1
+            #remove any regular admin that have trusted installer bug
+            Remove-Item -Path "registry::$fullKey" -Force -Recurse -ErrorAction SilentlyContinue
+        }
+        
+    }
+    catch {
+        continue
+    }
+}
+    
+    
+
+
 $aipackages = @(
     'MicrosoftWindows.Client.Photon'
     'MicrosoftWindows.Client.AIX'
