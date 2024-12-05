@@ -10,7 +10,7 @@ With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Co
 
 
 ### Script Features
- - Disable Copilot, Recall and AI Insights through registry
+ - **Registry**  
  - Remove all AI appxpackages and force remove the files
  - Delete any screenshots and data stored by Recall
 
@@ -22,4 +22,5 @@ With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Co
  
 
 
-#### Working : 24H2 (26100.2161)
+![image](https://github.com/user-attachments/assets/695bba37-bb5e-47d1-9b1c-b42d79bd8a31)
+
