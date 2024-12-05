@@ -115,9 +115,39 @@ $provisioned = get-appxprovisionedpackage -online
 $appxpackage = get-appxpackage -allusers
 $eol = @()
 $store = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore'
-$users = @('S-1-5-18'); if (test-path $store) { $users += $((Get-ChildItem $store -ea 0 | Where-Object { $_ -like '*S-1-5-21*' }).PSChildName) }
+$packageState = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\PackageState'
+$users = @('S-1-5-18'); if (test-path $store) { $users += $((Get-ChildItem $packageState -ea 0 | Where-Object { $_ -like '*S-1-5-21*' }).PSChildName) }
 
-#uninstall packages
+
+#disable copilot policies in region policy json
+$JSONPath = "$env:windir\System32\IntegratedServicesRegionPolicySet.json"
+if (Test-Path $JSONPath) {
+    Write-Host 'Disabling CoPilot Policies in ' -NoNewline
+    Write-Host "[$JSONPath]" -ForegroundColor Yellow
+
+    #takeownership
+    takeown /f $JSONPath *>$null
+    icacls $JSONPath /grant administrators:F /t *>$null
+
+    #edit the content
+    $jsonContent = Get-Content $JSONPath | ConvertFrom-Json
+    try {
+        $copilotPolicies = $jsonContent.policies | Where-Object { $_.'$comment' -like '*CoPilot*' }
+        foreach ($policies in $copilotPolicies) {
+            $policies.defaultState = 'disabled'
+        }
+        $newJSONContent = $jsonContent | ConvertTo-Json -Depth 100
+        Set-Content $JSONPath -Value $newJSONContent -Force
+        Write-Host "$($copilotPolicies.count) CoPilot Policies Disabled"
+    }
+    catch {
+        Write-Warning 'CoPilot Not Found in IntegratedServicesRegionPolicySet'
+    }
+
+    
+}
+
+
 
 #use eol trick to uninstall some locked packages
 foreach ($choice in $aipackages) {
