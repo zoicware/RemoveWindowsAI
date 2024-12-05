@@ -10,8 +10,12 @@ With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Co
 
 
 ### Script Features
- - **Registry**  
+ - **Registry** 
+   - Disable Copilot, Recall, Input Insights, CoPilot in Edge, Image Creator in Paint
  - Remove all AI appxpackages and force remove the files
+ - Disable Copilot policies in IntegratedServicesRegionPolicySet.json
+ - Remove Recall Optional Feature
+ - Remove all hidden Copilot installers
  - Delete any screenshots and data stored by Recall
 
  ### How to Use
