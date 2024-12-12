@@ -177,7 +177,7 @@ foreach ($sid in $users) { foreach ($PackageName in $eol) { Remove-Item "$store\
 #remove recall optional feature 
 $ProgressPreference = 'SilentlyContinue'
 try {
-    Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -ErrorAction Stop *>$null
+    Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
 }
 catch {
     #hide error
