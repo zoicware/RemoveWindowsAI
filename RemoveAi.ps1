@@ -251,7 +251,15 @@ $installers = Get-ChildItem -Path $inboxapps -Filter '*Copilot*'
 foreach ($installer in $installers) {
     takeown /f $installer.FullName *>$null
     icacls $installer.FullName /grant administrators:F /t *>$null
-    Remove-Item -Path $installer.FullName -Force
+    try {
+        Remove-Item -Path $installer.FullName -Force -ErrorAction Stop
+    }
+    catch {
+        #takeown didnt work remove file with system priv
+        $command = "Remove-Item -Path $($installer.FullName) -Force"
+        Run-Trusted -command $command 
+    }
+    
 }
 
 
