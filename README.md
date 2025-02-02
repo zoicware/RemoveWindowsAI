@@ -21,7 +21,7 @@ With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Co
  ### How to Use
  **Run From Powershell Console as Administrator**
  ```
- iwr https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveAi.ps1 | iex
+ iwr https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1 | iex
  ```
  
 
