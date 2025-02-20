@@ -16,6 +16,7 @@ With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Co
  - Disable Copilot policies in IntegratedServicesRegionPolicySet.json
  - Remove Recall Optional Feature
  - Remove all hidden Copilot installers
+ - Disable Rewrite for Notepad
  - Delete any screenshots and data stored by Recall
 
  ### How to Use
