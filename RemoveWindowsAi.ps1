@@ -266,6 +266,23 @@ foreach ($installer in $installers) {
 }
 
 
+#disable rewrite for notepad
+Write-Host 'Disabling Rewrite Ai Feature for Notepad...'
+#load notepad settings
+reg load HKU\TEMP "$env:LOCALAPPDATA\Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\Settings\settings.dat" >$null
+#add disable rewrite
+$regContent = @'
+Windows Registry Editor Version 5.00
+
+[HKEY_USERS\TEMP\LocalState]
+"RewriteEnabled"=hex(5f5e10b):00,e0,d1,c5,7f,ee,83,db,01
+'@
+New-Item "$env:TEMP\DisableRewrite.reg" -Value $regContent -Force | Out-Null
+regedit.exe /s "$env:TEMP\DisableRewrite.reg"
+Start-Sleep 1
+reg unload HKU\TEMP >$null
+Remove-Item "$env:TEMP\DisableRewrite.reg" -Force -ErrorAction SilentlyContinue
+
 #remove any screenshots from recall
 Write-Host 'Removing Any Screenshots...'
 Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorAction SilentlyContinue
