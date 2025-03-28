@@ -266,6 +266,10 @@ foreach ($installer in $installers) {
 }
 
 
+#hide ai components in immersive settings
+Write-Host 'Hiding Ai Components in Settings...'
+Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d 'hide:aicomponents;' /f >$null
+
 #disable rewrite for notepad
 Write-Host 'Disabling Rewrite Ai Feature for Notepad...'
 #load notepad settings
