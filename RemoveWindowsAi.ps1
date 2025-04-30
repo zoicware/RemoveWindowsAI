@@ -118,8 +118,7 @@ $provisioned = get-appxprovisionedpackage -online
 $appxpackage = get-appxpackage -allusers
 $eol = @()
 $store = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore'
-$packageState = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\PackageState'
-$users = @('S-1-5-18'); if (test-path $store) { $users += $((Get-ChildItem $packageState -ea 0 | Where-Object { $_ -like '*S-1-5-21*' }).PSChildName) }
+$users = @('S-1-5-18'); if (test-path $store) { $users += $((Get-ChildItem $store -ea 0 | Where-Object { $_ -like '*S-1-5-21*' }).PSChildName) }
 
 
 #disable copilot policies in region policy json
@@ -155,22 +154,48 @@ if (Test-Path $JSONPath) {
 #use eol trick to uninstall some locked packages
 foreach ($choice in $aipackages) {
     Write-Host "Removing $choice"
-    if ('' -eq $choice.Trim()) { continue }
+   
     foreach ($appx in $($provisioned | Where-Object { $_.PackageName -like "*$choice*" })) {
-        $next = !1; foreach ($no in $skip) { if ($appx.PackageName -like "*$no*") { $next = !0 } } ; if ($next) { continue }
-        $PackageName = $appx.PackageName; $PackageFamilyName = ($appxpackage | Where-Object { $_.Name -eq $appx.DisplayName }).PackageFamilyName
-        New-Item "$store\Deprovisioned\$PackageFamilyName" -force >''; 
-        foreach ($sid in $users) { New-Item "$store\EndOfLife\$sid\$PackageName" -force >'' } ; $eol += $PackageName
-        dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0 >''
-        remove-appxprovisionedpackage -packagename $PackageName -online -allusers >''
+
+        $PackageName = $appx.PackageName 
+        $PackageFamilyName = ($appxpackage | Where-Object { $_.Name -eq $appx.DisplayName }).PackageFamilyName
+
+        Run-Trusted -command "New-Item `"$store\Deprovisioned\$PackageFamilyName`" -force"
+        Start-Sleep .5
+        Run-Trusted -command "dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0"
+        Start-Sleep .5
+        foreach ($sid in $users) { 
+            Run-Trusted -command "New-Item `"$store\EndOfLife\$sid\$PackageName`" -force"
+            Start-Sleep .5
+        }  
+        $eol += $PackageName
+        Run-Trusted -command "remove-appxprovisionedpackage -packagename $PackageName -online -allusers"
     }
     foreach ($appx in $($appxpackage | Where-Object { $_.PackageFullName -like "*$choice*" })) {
-        $next = !1; foreach ($no in $skip) { if ($appx.PackageFullName -like "*$no*") { $next = !0 } } ; if ($next) { continue }
-        $PackageFullName = $appx.PackageFullName;
-        New-Item "$store\Deprovisioned\$appx.PackageFamilyName" -force >''; 
-        foreach ($sid in $users) { New-Item "$store\EndOfLife\$sid\$PackageFullName" -force >'' } ; $eol += $PackageFullName
-        dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0 >''
-        remove-appxpackage -package $PackageFullName -allusers >''
+
+        $PackageFullName = $appx.PackageFullName
+        $PackageFamilyName = $appx.PackageFamilyName
+        Run-Trusted -command "New-Item `"$store\Deprovisioned\$PackageFamilyName`" -force"
+        Start-Sleep .5
+        Run-Trusted -command "dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0"
+        Start-Sleep .5
+        #remove inbox apps
+        $inboxApp = "$store\InboxApplications\$PackageFullName"
+        Run-Trusted -command "Remove-Item -Path $inboxApp -Force"
+        Start-Sleep .5
+        #get all installed user sids for package due to not all showing up in reg
+        foreach ($user in $appx.PackageUserInformation) { 
+            $sid = $user.UserSecurityID.SID
+            if ($users -notcontains $sid) {
+                $users += $sid
+            }
+            Run-Trusted -command "New-Item `"$store\EndOfLife\$sid\$PackageFullName`" -force"
+            Start-Sleep .5
+            Run-Trusted -command "remove-appxpackage -package $PackageFullName -User $sid"
+            Start-Sleep .5
+        } 
+        $eol += $PackageFullName
+        Run-Trusted -command "remove-appxpackage -package $PackageFullName -allusers"
     }
 }
 
