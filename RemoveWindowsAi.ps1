@@ -112,6 +112,7 @@ $aipackages = @(
     'Microsoft.Windows.Ai.Copilot.Provider'
     'Microsoft.Copilot'
     'Microsoft.MicrosoftOfficeHub'
+    'MicrosoftWindows.Client.CoreAI'
 )
 
 $provisioned = get-appxprovisionedpackage -online 
