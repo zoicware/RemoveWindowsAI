@@ -105,21 +105,7 @@ foreach ($key in $keys) {
     
 
 
-$aipackages = @(
-    'MicrosoftWindows.Client.Photon'
-    'MicrosoftWindows.Client.AIX'
-    'MicrosoftWindows.Client.CoPilot'
-    'Microsoft.Windows.Ai.Copilot.Provider'
-    'Microsoft.Copilot'
-    'Microsoft.MicrosoftOfficeHub'
-    'MicrosoftWindows.Client.CoreAI'
-)
 
-$provisioned = get-appxprovisionedpackage -online 
-$appxpackage = get-appxpackage -allusers
-$eol = @()
-$store = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore'
-$users = @('S-1-5-18'); if (test-path $store) { $users += $((Get-ChildItem $store -ea 0 | Where-Object { $_ -like '*S-1-5-21*' }).PSChildName) }
 
 
 #disable copilot policies in region policy json
@@ -150,55 +136,106 @@ if (Test-Path $JSONPath) {
     
 }
 
+#to make this part faster make a txt file in temp with chunck of removal 
+#code and then just run that from run 
+#trusted function due to the design of having it hidden from the user
 
+$packageRemovalPath = "$env:TEMP\aiPackageRemoval.ps1"
+if (!(test-path $packageRemovalPath)) {
+    New-Item $packageRemovalPath -Force | Out-Null
+}
+
+#needed for separate powershell sessions
+$aipackages = @(
+    'MicrosoftWindows.Client.Photon'
+    'MicrosoftWindows.Client.AIX'
+    'MicrosoftWindows.Client.CoPilot'
+    'Microsoft.Windows.Ai.Copilot.Provider'
+    'Microsoft.Copilot'
+    'Microsoft.MicrosoftOfficeHub'
+    'MicrosoftWindows.Client.CoreAI'
+)
+
+$code = @'
+$aipackages = @(
+    'MicrosoftWindows.Client.Photon'
+    'MicrosoftWindows.Client.AIX'
+    'MicrosoftWindows.Client.CoPilot'
+    'Microsoft.Windows.Ai.Copilot.Provider'
+    'Microsoft.Copilot'
+    'Microsoft.MicrosoftOfficeHub'
+    'MicrosoftWindows.Client.CoreAI'
+)
+
+$provisioned = get-appxprovisionedpackage -online 
+$appxpackage = get-appxpackage -allusers
+$eol = @()
+$store = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore'
+$users = @('S-1-5-18'); if (test-path $store) { $users += $((Get-ChildItem $store -ea 0 | Where-Object { $_ -like '*S-1-5-21*' }).PSChildName) }
 
 #use eol trick to uninstall some locked packages
 foreach ($choice in $aipackages) {
-    Write-Host "Removing $choice"
-   
     foreach ($appx in $($provisioned | Where-Object { $_.PackageName -like "*$choice*" })) {
 
         $PackageName = $appx.PackageName 
         $PackageFamilyName = ($appxpackage | Where-Object { $_.Name -eq $appx.DisplayName }).PackageFamilyName
 
-        Run-Trusted -command "New-Item `"$store\Deprovisioned\$PackageFamilyName`" -force"
-        Start-Sleep .5
-        Run-Trusted -command "dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0"
-        Start-Sleep .5
+        New-Item "$store\Deprovisioned\$PackageFamilyName" -force
+     
+        dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0
+       
         foreach ($sid in $users) { 
-            Run-Trusted -command "New-Item `"$store\EndOfLife\$sid\$PackageName`" -force"
-            Start-Sleep .5
+            New-Item "$store\EndOfLife\$sid\$PackageName" -force
         }  
         $eol += $PackageName
-        Run-Trusted -command "remove-appxprovisionedpackage -packagename $PackageName -online -allusers"
+        remove-appxprovisionedpackage -packagename $PackageName -online -allusers
     }
     foreach ($appx in $($appxpackage | Where-Object { $_.PackageFullName -like "*$choice*" })) {
 
         $PackageFullName = $appx.PackageFullName
         $PackageFamilyName = $appx.PackageFamilyName
-        Run-Trusted -command "New-Item `"$store\Deprovisioned\$PackageFamilyName`" -force"
-        Start-Sleep .5
-        Run-Trusted -command "dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0"
-        Start-Sleep .5
+        New-Item "$store\Deprovisioned\$PackageFamilyName" -force
+        
+        dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0
+       
         #remove inbox apps
         $inboxApp = "$store\InboxApplications\$PackageFullName"
-        Run-Trusted -command "Remove-Item -Path $inboxApp -Force"
-        Start-Sleep .5
+        Remove-Item -Path $inboxApp -Force
+       
         #get all installed user sids for package due to not all showing up in reg
         foreach ($user in $appx.PackageUserInformation) { 
             $sid = $user.UserSecurityID.SID
             if ($users -notcontains $sid) {
                 $users += $sid
             }
-            Run-Trusted -command "New-Item `"$store\EndOfLife\$sid\$PackageFullName`" -force"
-            Start-Sleep .5
-            Run-Trusted -command "remove-appxpackage -package $PackageFullName -User $sid"
-            Start-Sleep .5
+            New-Item "$store\EndOfLife\$sid\$PackageFullName" -force
+            remove-appxpackage -package $PackageFullName -User $sid 
         } 
         $eol += $PackageFullName
-        Run-Trusted -command "remove-appxpackage -package $PackageFullName -allusers"
+        remove-appxpackage -package $PackageFullName -allusers
     }
 }
+'@
+Set-Content -Path $packageRemovalPath -Value $code -Force 
+
+Write-Host 'Removing AI Appx Packages...'
+$command = "&$env:TEMP\aiPackageRemoval.ps1"
+Run-Trusted -command $command
+
+#check packages removal
+do {
+    Start-Sleep 1
+    $packages = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name }
+    foreach ($package in $packages) {
+        if ($package.PackageUserInformation -like '*pending removal*') {
+            $ProgressPreference = 'SilentlyContinue'
+            &$env:TEMP\aiPackageRemoval.ps1 *>$null
+        }
+    }
+    
+}while ($packages)
+#cleanup code
+Remove-Item $packageRemovalPath -Force
 
 ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
 foreach ($sid in $users) { foreach ($PackageName in $eol) { Remove-Item "$store\EndOfLife\$sid\$PackageName" -force -ErrorAction SilentlyContinue >'' } }
@@ -206,6 +243,7 @@ foreach ($sid in $users) { foreach ($PackageName in $eol) { Remove-Item "$store\
 #remove recall optional feature 
 $ProgressPreference = 'SilentlyContinue'
 try {
+    Write-Host 'Removing Recall Optional Feature...'
     Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
 }
 catch {
