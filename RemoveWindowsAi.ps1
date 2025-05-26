@@ -18,7 +18,7 @@ function Run-Trusted([String]$command) {
     sc.exe start TrustedInstaller | Out-Null
     #set bin back to default
     sc.exe config TrustedInstaller binpath= "`"$DefaultBinPath`"" | Out-Null
-    # Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
+    Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
 
 }
 
@@ -259,7 +259,11 @@ Write-Status -msg 'Packages Removed Sucessfully...'
 Remove-Item $packageRemovalPath -Force
 
 ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
-#foreach ($sid in $users) { foreach ($PackageName in $eol) { Remove-Item "$store\EndOfLife\$sid\$PackageName" -force -ErrorAction SilentlyContinue >'' } }
+$eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
+$eolKeys = (Get-ChildItem $eolPath).Name
+foreach ($path in $eolKeys) {
+    Remove-Item "registry::$path" -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 #remove recall optional feature 
 $ProgressPreference = 'SilentlyContinue'
