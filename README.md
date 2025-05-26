@@ -1,6 +1,6 @@
 # Remove Windows Ai
 ## Why?
-With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Copilot and Recall. These features are a major security risk and very intrusive to the users experience. 
+The current 24H2 build of Windows 11 and future builds will include increasingly more AI features and components. This script aims to remove ALL of these features to improve user experience and security. 
 
 <img width="150" alt="AI-Explorer-icon" src="https://github.com/zoicware/RemoveWindowsAI/assets/118035521/33efb033-c935-416c-977d-777bb69a3737">
 
@@ -19,6 +19,18 @@ With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Co
  - Disable Rewrite for Notepad
  - Delete any screenshots and data stored by Recall
 
+---
+### Updates
+
+Given that Microsoft are continually updating and adding new AI features this script will attempt to stay updated for the newest stable build.
+`Note: Any feature added to an insider build will not be added to this script till it's added to the latest stable release`
+
+**Submitting An AI Feature**
+
+If you find an AI feature that is not currently removed or disabled by the script submit an issue with as much information as possible and I will add it to the script.
+
+---
+
  ### How to Use
  **Run From Powershell Console as Administrator**
  ```
@@ -28,5 +40,11 @@ With the upcoming 24H2 Update to Windows 11 Microsoft will begin to implement Co
 
 
 ![image](https://github.com/user-attachments/assets/be4c29da-8a60-43e7-a63b-5d4415cc31a6)
+
+---
+
+### Join The Discord
+
+[![Discord](https://discordapp.com/api/guilds/1173717737017716777/widget.png?style=banner1)](https://discord.gg/VsC7XS5vgA)
 
 
