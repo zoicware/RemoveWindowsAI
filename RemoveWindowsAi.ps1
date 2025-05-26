@@ -18,7 +18,7 @@ function Run-Trusted([String]$command) {
     sc.exe start TrustedInstaller | Out-Null
     #set bin back to default
     sc.exe config TrustedInstaller binpath= "`"$DefaultBinPath`"" | Out-Null
-    Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
+    # Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
 
 }
 
