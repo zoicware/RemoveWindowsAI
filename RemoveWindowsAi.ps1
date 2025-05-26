@@ -18,14 +18,29 @@ function Run-Trusted([String]$command) {
     sc.exe start TrustedInstaller | Out-Null
     #set bin back to default
     sc.exe config TrustedInstaller binpath= "`"$DefaultBinPath`"" | Out-Null
-    Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
+    # Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
 
 }
 
-Write-Host '---Remove Windows AI by @zoicware---'
+function Write-Status {
+    param(
+        [string]$msg,
+        [bool]$errorOutput = $false
+    )
+    if ($errorOutput) {
+        Write-Host "[ ! ] $msg" -ForegroundColor Red
+    }
+    else {
+        Write-Host "[ + ] $msg" -ForegroundColor Cyan
+    }
+   
+    
+}
+
+Write-Host '~ ~ ~ Remove Windows AI by @zoicware ~ ~ ~' -ForegroundColor DarkCyan
 
 #disable ai registry keys
-Write-Host 'Applying Registry Keys...'
+Write-Status -msg 'Disabling Copilot and Recall...'
 #set for local machine and current user to be sure
 $hives = @('HKLM', 'HKCU')
 foreach ($hive in $hives) {
@@ -36,8 +51,10 @@ foreach ($hive in $hives) {
 Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' /v 'ShowCopilotButton' /t REG_DWORD /d '0' /f *>$null
 Reg.exe add 'HKCU\Software\Microsoft\input\Settings' /v 'InsightsEnabled' /t REG_DWORD /d '0' /f *>$null
 #remove copilot from search
+Write-Status -msg 'Disabling Copilot In Windows Search...'
 Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'DisableSearchBoxSuggestions' /t REG_DWORD /d '1' /f *>$null
 #disable copilot in edge
+Write-Status -msg 'Disabling Copilot In Edge...'
 Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'CopilotCDPPageContext' /t REG_DWORD /d '0' /f *>$null
 Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'CopilotPageContext' /t REG_DWORD /d '0' /f *>$null
 Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'HubsSidebarEnabled' /t REG_DWORD /d '0' /f *>$null
@@ -48,6 +65,7 @@ Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settin
 Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\generativeAI' /v 'Value' /t REG_SZ /d 'Deny' /f *>$null
 Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy' /v 'LetAppsAccessGenerativeAI' /t REG_DWORD /d '2' /f *>$null
 #disable ai image creator in paint
+Write-Status -msg 'Disabling Image Creator In Paint...'
 Reg.exe add 'HKLM\SOFTWARE\Microsoft\PolicyManager\default\WindowsAI\DisableImageCreator' /v 'Behavior' /t REG_DWORD /d '1056800' /f *>$null
 Reg.exe add 'HKLM\SOFTWARE\Microsoft\PolicyManager\default\WindowsAI\DisableImageCreator' /v 'highrange' /t REG_DWORD /d '1' /f *>$null
 Reg.exe add 'HKLM\SOFTWARE\Microsoft\PolicyManager\default\WindowsAI\DisableImageCreator' /v 'lowrange' /t REG_DWORD /d '0' /f *>$null
@@ -58,11 +76,12 @@ Reg.exe add 'HKLM\SOFTWARE\Microsoft\PolicyManager\default\WindowsAI\DisableImag
 Reg.exe add 'HKLM\SOFTWARE\Microsoft\PolicyManager\default\WindowsAI\DisableImageCreator' /v 'value' /t REG_DWORD /d '0' /f *>$null
 Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableImageCreator' /t REG_DWORD /d '1' /f *>$null
 #force policy changes
+Write-Status -msg 'Applying Registry Changes...'
 gpupdate /force >$null
 
 
 #prefire copilot nudges package by deleting the registry keys 
-Write-Host 'Removing Copilot Nudges Registry Keys...'
+Write-Status -msg 'Removing Copilot Nudges Registry Keys...'
 $keys = @(
     'registry::HKCR\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
     'registry::HKCR\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa',
@@ -127,10 +146,10 @@ if (Test-Path $JSONPath) {
         }
         $newJSONContent = $jsonContent | ConvertTo-Json -Depth 100
         Set-Content $JSONPath -Value $newJSONContent -Force
-        Write-Host "$($copilotPolicies.count) CoPilot Policies Disabled"
+        Write-Status -msg "$($copilotPolicies.count) CoPilot Policies Disabled"
     }
     catch {
-        Write-Warning 'CoPilot Not Found in IntegratedServicesRegionPolicySet'
+        Write-Status -msg 'CoPilot Not Found in IntegratedServicesRegionPolicySet' -errorOutput $true
     }
 
     
@@ -182,7 +201,7 @@ foreach ($choice in $aipackages) {
 
         New-Item "$store\Deprovisioned\$PackageFamilyName" -force
      
-        dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0
+        Set-NonRemovableAppsPolicy -Online -PackageFamilyName $PackageFamilyName -NonRemovable 0
        
         foreach ($sid in $users) { 
             New-Item "$store\EndOfLife\$sid\$PackageName" -force
@@ -196,7 +215,7 @@ foreach ($choice in $aipackages) {
         $PackageFamilyName = $appx.PackageFamilyName
         New-Item "$store\Deprovisioned\$PackageFamilyName" -force
         
-        dism /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0
+        Set-NonRemovableAppsPolicy -Online -PackageFamilyName $PackageFamilyName -NonRemovable 0
        
         #remove inbox apps
         $inboxApp = "$store\InboxApplications\$PackageFullName"
@@ -218,7 +237,7 @@ foreach ($choice in $aipackages) {
 '@
 Set-Content -Path $packageRemovalPath -Value $code -Force 
 
-Write-Host 'Removing AI Appx Packages...'
+Write-Status -msg 'Removing AI Appx Packages...'
 $command = "&$env:TEMP\aiPackageRemoval.ps1"
 Run-Trusted -command $command
 
@@ -234,16 +253,18 @@ do {
     }
     
 }while ($packages)
+
+Write-Status -msg 'Packages Removed Sucessfully...'
 #cleanup code
 Remove-Item $packageRemovalPath -Force
 
 ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
-foreach ($sid in $users) { foreach ($PackageName in $eol) { Remove-Item "$store\EndOfLife\$sid\$PackageName" -force -ErrorAction SilentlyContinue >'' } }
+#foreach ($sid in $users) { foreach ($PackageName in $eol) { Remove-Item "$store\EndOfLife\$sid\$PackageName" -force -ErrorAction SilentlyContinue >'' } }
 
 #remove recall optional feature 
 $ProgressPreference = 'SilentlyContinue'
 try {
-    Write-Host 'Removing Recall Optional Feature...'
+    Write-Status -msg 'Removing Recall Optional Feature...'
     Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
 }
 catch {
@@ -251,7 +272,7 @@ catch {
 }
 
 
-Write-Host 'Removing Package Files...'
+Write-Status -msg 'Removing Appx Package Files...'
 #-----------------------------------------------------------------------remove files
 $appsPath = 'C:\Windows\SystemApps'
 $appsPath2 = 'C:\Program Files\WindowsApps'
@@ -291,6 +312,7 @@ foreach ($Path in $packagesPath) {
     }
 }
 
+Write-Status -msg 'Removing Hidden Copilot Installers...'
 #remove package installers in edge dir
 #installs Microsoft.Windows.Ai.Copilot.Provider
 $dir = "${env:ProgramFiles(x86)}\Microsoft"
@@ -331,11 +353,11 @@ foreach ($installer in $installers) {
 
 
 #hide ai components in immersive settings
-Write-Host 'Hiding Ai Components in Settings...'
+Write-Status -msg 'Hiding Ai Components in Settings...'
 Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d 'hide:aicomponents;' /f >$null
 
 #disable rewrite for notepad
-Write-Host 'Disabling Rewrite Ai Feature for Notepad...'
+Write-Status -msg 'Disabling Rewrite Ai Feature for Notepad...'
 #load notepad settings
 reg load HKU\TEMP "$env:LOCALAPPDATA\Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\Settings\settings.dat" >$null
 #add disable rewrite
@@ -352,7 +374,7 @@ reg unload HKU\TEMP >$null
 Remove-Item "$env:TEMP\DisableRewrite.reg" -Force -ErrorAction SilentlyContinue
 
 #remove any screenshots from recall
-Write-Host 'Removing Any Screenshots...'
+Write-Status -msg 'Removing Any Screenshots By Recall...'
 Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorAction SilentlyContinue
 
 
