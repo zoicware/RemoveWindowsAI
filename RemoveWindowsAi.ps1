@@ -18,7 +18,7 @@ function Run-Trusted([String]$command) {
     sc.exe start TrustedInstaller | Out-Null
     #set bin back to default
     sc.exe config TrustedInstaller binpath= "`"$DefaultBinPath`"" | Out-Null
-    # Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
+    Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
 
 }
 
@@ -236,7 +236,8 @@ foreach ($choice in $aipackages) {
 }
 '@
 Set-Content -Path $packageRemovalPath -Value $code -Force 
-
+#allow removal script to run
+Set-ExecutionPolicy Unrestricted -Force
 Write-Status -msg 'Removing AI Appx Packages...'
 $command = "&$env:TEMP\aiPackageRemoval.ps1"
 Run-Trusted -command $command
