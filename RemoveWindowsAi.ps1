@@ -382,6 +382,8 @@ regedit.exe /s "$env:TEMP\DisableRewrite.reg"
 Start-Sleep 1
 reg unload HKU\TEMP >$null
 Remove-Item "$env:TEMP\DisableRewrite.reg" -Force -ErrorAction SilentlyContinue
+#above is old method before this policy to disable ai in notepad, leaving older method just incase 
+Reg.exe add 'HKLM\SOFTWARE\Policies\WindowsNotepad' /v 'DisableAIFeatures' /t REG_DWORD /d '1' /f *>$null
 
 #remove any screenshots from recall
 Write-Status -msg 'Removing Any Screenshots By Recall...'
