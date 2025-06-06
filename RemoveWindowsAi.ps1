@@ -242,7 +242,17 @@ foreach ($choice in $aipackages) {
 '@
 Set-Content -Path $packageRemovalPath -Value $code -Force 
 #allow removal script to run
-Set-ExecutionPolicy Unrestricted -Force
+try {
+    Set-ExecutionPolicy Unrestricted -Force -ErrorAction Stop
+}
+catch {
+    #user has set powershell execution policy via group policy, to change it we need to update the registry 
+    $ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell' -Name 'ExecutionPolicy' -ErrorAction SilentlyContinue
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'EnableScripts' /t REG_DWORD /d '1' /f >$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
+}
+
+
 Write-Status -msg 'Removing AI Appx Packages...'
 $command = "&$env:TEMP\aiPackageRemoval.ps1"
 Run-Trusted -command $command
@@ -263,6 +273,10 @@ do {
 Write-Status -msg 'Packages Removed Sucessfully...'
 #cleanup code
 Remove-Item $packageRemovalPath -Force
+#set executionpolicy back to what it was
+if ($ogExecutionPolicy) {
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
+}
 
 ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
 $eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
