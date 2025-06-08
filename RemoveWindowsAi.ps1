@@ -5,7 +5,12 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
 function Run-Trusted([String]$command) {
 
-    Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
+    try {
+        Stop-Service -Name TrustedInstaller -Force -ErrorAction Stop -WarningAction Stop
+    }
+    catch {
+        taskkill /im trustedinstaller.exe /f >$null
+    }
     #get bin path to revert later
     $service = Get-WmiObject -Class Win32_Service -Filter "Name='TrustedInstaller'"
     $DefaultBinPath = $service.PathName
@@ -18,8 +23,13 @@ function Run-Trusted([String]$command) {
     sc.exe start TrustedInstaller | Out-Null
     #set bin back to default
     sc.exe config TrustedInstaller binpath= "`"$DefaultBinPath`"" | Out-Null
-    Stop-Service -Name TrustedInstaller -Force -ErrorAction SilentlyContinue
-
+    try {
+        Stop-Service -Name TrustedInstaller -Force -ErrorAction Stop -WarningAction Stop
+    }
+    catch {
+        taskkill /im trustedinstaller.exe /f >$null
+    }
+    
 }
 
 function Write-Status {
