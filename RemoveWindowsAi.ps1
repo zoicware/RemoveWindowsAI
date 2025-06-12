@@ -14,6 +14,11 @@ function Run-Trusted([String]$command) {
     #get bin path to revert later
     $service = Get-WmiObject -Class Win32_Service -Filter "Name='TrustedInstaller'"
     $DefaultBinPath = $service.PathName
+    #make sure path is valid and the correct location
+    $trustedInstallerPath = "$env:SystemRoot\servicing\TrustedInstaller.exe"
+    if($DefaultBinPath -ne $trustedInstallerPath){
+        $DefaultBinPath = $trustedInstallerPath
+    }
     #convert command to base64 to avoid errors with spaces
     $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
     $base64Command = [Convert]::ToBase64String($bytes)
