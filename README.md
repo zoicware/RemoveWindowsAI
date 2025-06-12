@@ -23,6 +23,7 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
 ### Updates
 
 Given that Microsoft are continually updating and adding new AI features this script will attempt to stay updated for the newest stable build.
+
 `Note: Any feature added to an insider build will not be added to this script till it's added to the latest stable release`
 
 **Submitting An AI Feature**
@@ -33,7 +34,7 @@ If you find an AI feature that is not currently removed or disabled by the scrip
 
  ### How to Use
  **Run From Powershell Console as Administrator**
- ```
+ ```PowerShell
  iwr https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1 | iex
  ```
  
