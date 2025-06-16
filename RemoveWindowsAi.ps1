@@ -385,6 +385,26 @@ foreach ($Path in $packagesPath) {
     }
 }
 
+#remove machine learning dlls
+$paths = @(
+    "$env:SystemRoot\System32\Windows.AI.MachineLearning.dll"
+    "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.dll"
+    "$env:SystemRoot\System32\Windows.AI.MachineLearning.Preview.dll"
+    "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.Preview.dll"
+)
+foreach ($path in $paths) {
+    takeown /f $path *>$null
+    icacls $path /grant administrators:F /t *>$null
+    try {
+        Remove-Item -Path $path -Force -ErrorAction Stop
+    }
+    catch {
+        #takeown didnt work remove file with system priv
+        $command = "Remove-Item -Path $path -Force"
+        Run-Trusted -command $command 
+    }
+}
+
 Write-Status -msg 'Removing Hidden Copilot Installers...'
 #remove package installers in edge dir
 #installs Microsoft.Windows.Ai.Copilot.Provider
