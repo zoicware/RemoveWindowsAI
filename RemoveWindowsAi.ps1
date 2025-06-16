@@ -16,7 +16,7 @@ function Run-Trusted([String]$command) {
     $DefaultBinPath = $service.PathName
     #make sure path is valid and the correct location
     $trustedInstallerPath = "$env:SystemRoot\servicing\TrustedInstaller.exe"
-    if($DefaultBinPath -ne $trustedInstallerPath){
+    if ($DefaultBinPath -ne $trustedInstallerPath) {
         $DefaultBinPath = $trustedInstallerPath
     }
     #convert command to base64 to avoid errors with spaces
@@ -247,7 +247,6 @@ $aipackages = @(
 
 $provisioned = get-appxprovisionedpackage -online 
 $appxpackage = get-appxpackage -allusers
-$eol = @()
 $store = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore'
 $users = @('S-1-5-18'); if (test-path $store) { $users += $((Get-ChildItem $store -ea 0 | Where-Object { $_ -like '*S-1-5-21*' }).PSChildName) }
 
@@ -265,7 +264,6 @@ foreach ($choice in $aipackages) {
         foreach ($sid in $users) { 
             New-Item "$store\EndOfLife\$sid\$PackageName" -force
         }  
-        $eol += $PackageName
         remove-appxprovisionedpackage -packagename $PackageName -online -allusers
     }
     foreach ($appx in $($appxpackage | Where-Object { $_.PackageFullName -like "*$choice*" })) {
@@ -289,7 +287,6 @@ foreach ($choice in $aipackages) {
             New-Item "$store\EndOfLife\$sid\$PackageFullName" -force
             remove-appxpackage -package $PackageFullName -User $sid 
         } 
-        $eol += $PackageFullName
         remove-appxpackage -package $PackageFullName -allusers
     }
 }
@@ -315,11 +312,9 @@ Run-Trusted -command $command
 do {
     Start-Sleep 1
     $packages = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name }
-    foreach ($package in $packages) {
-        if ($package.PackageUserInformation -like '*pending removal*') {
-            $ProgressPreference = 'SilentlyContinue'
-            &$env:TEMP\aiPackageRemoval.ps1 *>$null
-        }
+    if ($packages) {
+        $command = "&$env:TEMP\aiPackageRemoval.ps1"
+        Run-Trusted -command $command
     }
     
 }while ($packages)
