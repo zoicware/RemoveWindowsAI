@@ -54,6 +54,19 @@ function Write-Status {
 
 Write-Host '~ ~ ~ Remove Windows AI by @zoicware ~ ~ ~' -ForegroundColor DarkCyan
 
+Write-Status -msg 'Killing AI Processes...'
+#kill ai processes to ensure script runs smoothly
+$aiProcesses = @(
+    'ai.exe'
+    'Copilot.exe'
+    'aihost.exe'
+    'aicontext.exe'
+    'ClickToDo.exe'
+)
+foreach($procName in $aiProcesses){
+    taskkill /im $procName /f *>$null
+}
+
 #disable ai registry keys
 Write-Status -msg 'Disabling Copilot and Recall...'
 #set for local machine and current user to be sure
