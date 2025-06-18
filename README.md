@@ -19,16 +19,29 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
  - Disable Rewrite for Notepad
  - Delete any screenshots and data stored by Recall
 
+> [!IMPORTANT]  
+> **HELP WANTED**
+>
+> Currently, the script contains appx packages installed on Copilot+ PCs however, there could be more on different configurations as well as other features
+> 
+> If you have one of these PCs submit an issue so we can check if the script is missing anything
+
 ---
 ### Updates
 
 Given that Microsoft are continually updating and adding new AI features this script will attempt to stay updated for the newest stable build.
 
-`Note: Any feature added to an insider build will not be added to this script till it's added to the latest stable release`
+ > [!NOTE]  
+> Any feature added to an insider build will not be added to this script till it's added to the latest stable release
 
-**Submitting An AI Feature**
+ 
+> [!TIP]
+> **Submitting An AI Feature**
+>
+> If you find an AI feature or registry key that is not currently removed or disabled by the script submit an issue with as much information as possible and I will add it to the script.
 
-If you find an AI feature that is not currently removed or disabled by the script submit an issue with as much information as possible and I will add it to the script.
+
+
 
 ---
 
