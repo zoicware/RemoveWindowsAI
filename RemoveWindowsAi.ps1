@@ -63,7 +63,7 @@ $aiProcesses = @(
     'aicontext.exe'
     'ClickToDo.exe'
 )
-foreach($procName in $aiProcesses){
+foreach ($procName in $aiProcesses) {
     taskkill /im $procName /f *>$null
 }
 
@@ -228,6 +228,12 @@ $aipackages = @(
     'WindowsWorkload.ImageSearch.Data.3'
     'WindowsWorkload.ImageSearch.Stx.2'
     'WindowsWorkload.ImageSearch.Stx.3'
+    'WindowsWorkload.ImageTextSearch.Data.3'
+    'WindowsWorkload.PSOnnxRuntime.Stx.3.2'
+    'WindowsWorkload.PSTokenizerShared.Data.3.2'
+    'WindowsWorkload.PSTokenizerShared.Stx.3.2'
+    'WindowsWorkload.ImageTextSearch.Stx.2'
+    'WindowsWorkload.ImageTextSearch.Stx.3'
 )
 
 $code = @'
@@ -258,6 +264,12 @@ $aipackages = @(
     'WindowsWorkload.ImageSearch.Data.3'
     'WindowsWorkload.ImageSearch.Stx.2'
     'WindowsWorkload.ImageSearch.Stx.3'
+    'WindowsWorkload.ImageTextSearch.Data.3'
+    'WindowsWorkload.PSOnnxRuntime.Stx.3.2'
+    'WindowsWorkload.PSTokenizerShared.Data.3.2'
+    'WindowsWorkload.PSTokenizerShared.Stx.3.2'
+    'WindowsWorkload.ImageTextSearch.Stx.2'
+    'WindowsWorkload.ImageTextSearch.Stx.3'
 )
 
 $provisioned = get-appxprovisionedpackage -online 
