@@ -356,15 +356,18 @@ foreach ($path in $eolKeys) {
 }
 
 #remove recall optional feature 
-$ProgressPreference = 'SilentlyContinue'
-try {
-    Write-Status -msg 'Removing Recall Optional Feature...'
-    Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
+Write-Status -msg 'Removing Recall Optional Feature...'
+$state = (Get-WindowsOptionalFeature -Online -FeatureName 'Recall').State
+if ($state -and $state -ne 'DisabledWithPayloadRemoved') {
+    $ProgressPreference = 'SilentlyContinue'
+    try {
+        Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
+    }
+    catch {
+        #hide error
+    }
+    
 }
-catch {
-    #hide error
-}
-
 
 Write-Status -msg 'Removing Appx Package Files...'
 #-----------------------------------------------------------------------remove files
