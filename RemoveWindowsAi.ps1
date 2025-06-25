@@ -347,12 +347,6 @@ do {
 }while ($packages)
 
 Write-Status -msg 'Packages Removed Sucessfully...'
-#cleanup code
-Remove-Item $packageRemovalPath -Force
-#set executionpolicy back to what it was
-if ($ogExecutionPolicy) {
-    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-}
 
 ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
 $eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
@@ -501,14 +495,33 @@ Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorActi
 
 #remove recall tasks
 Write-Status -msg 'Removing Recall Scheduled Tasks...'
+#believe it or not to disable and remove these you need system priv
+#create another sub script for removal
+$code = @"
 Get-ScheduledTask -TaskPath "*Recall*" | Disable-ScheduledTask -ErrorAction SilentlyContinue
-Remove-Item "$env:Systemroot\System32\Tasks\Microsoft\Windows\WindowsAI" -Recurse -Force -ErrorAction SilentlyContinue
-$initConfigID = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI\Recall\InitialConfiguration" -Name 'Id'
-$policyConfigID = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI\Recall\PolicyConfiguration" -Name 'Id'
+Remove-Item "`$env:Systemroot\System32\Tasks\Microsoft\Windows\WindowsAI" -Recurse -Force -ErrorAction SilentlyContinue
+`$initConfigID = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI\Recall\InitialConfiguration" -Name 'Id'
+`$policyConfigID = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI\Recall\PolicyConfiguration" -Name 'Id'
 
-Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\$initConfigID" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\$policyConfigID" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\`$initConfigID" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\`$policyConfigID" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI" -Force -Recurse -ErrorAction SilentlyContinue
+"@
+$subScript = "$env:TEMP\RemoveRecallTasks.ps1"
+New-Item $subScript -Force | Out-Null
+Set-Content $subScript -Value $code -Force
+
+$command = "&$subScript"
+Run-Trusted -command $command
+Start-Sleep 1
+
+#cleanup code
+Remove-Item $packageRemovalPath -Force
+Remove-Item $subScript -Force
+#set executionpolicy back to what it was
+if ($ogExecutionPolicy) {
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
+}
 
 $input = Read-Host 'Done! Press Any Key to Exit'
 if ($input) { exit }
