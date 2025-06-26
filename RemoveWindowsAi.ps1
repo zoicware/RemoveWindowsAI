@@ -62,6 +62,8 @@ $aiProcesses = @(
     'aihost.exe'
     'aicontext.exe'
     'ClickToDo.exe'
+    'aixhost.exe'
+    'WorkloadsSessionHost.exe'
 )
 foreach ($procName in $aiProcesses) {
     taskkill /im $procName /f *>$null
