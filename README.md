@@ -11,13 +11,15 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
 
 ### Script Features
  - **Registry** 
-   - Disable Copilot, Recall, Input Insights, CoPilot in Edge, Image Creator in Paint
+   - Disable Copilot, Recall, Input Insights, CoPilot in Edge, Image Creator in Paint, Remove AI Fabric Service
  - Remove all AI appxpackages and force remove the files
  - Disable Copilot policies in IntegratedServicesRegionPolicySet.json
  - Remove Recall Optional Feature
  - Remove all hidden Copilot installers
  - Disable Rewrite for Notepad
  - Delete any screenshots and data stored by Recall
+ - Remove Recall Scheduled Task
+ - Remove Machine Learning DLL's
 
 > [!IMPORTANT]  
 > **HELP WANTED**
