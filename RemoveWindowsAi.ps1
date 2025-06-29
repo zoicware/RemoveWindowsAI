@@ -375,6 +375,21 @@ if ($state -and $state -ne 'DisabledWithPayloadRemoved') {
     
 }
 
+#additional hidden packages
+Write-Status -msg 'Removing Additional Hidden AI Packages...'
+#unhide the packages from dism, remove owners subkey for removal 
+$regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+$ProgressPreference = 'SilentlyContinue'
+Get-ChildItem $regPath | ForEach-Object {
+    $value = Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility
+    if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*') {
+        Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
+        Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
+        Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
+        Remove-WindowsPackage -Online -PackageName $_.PSChildName *>$null
+    }
+}
+
 Write-Status -msg 'Removing Appx Package Files...'
 #-----------------------------------------------------------------------remove files
 $appsPath = 'C:\Windows\SystemApps'
