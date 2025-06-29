@@ -382,7 +382,7 @@ $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Serv
 $ProgressPreference = 'SilentlyContinue'
 Get-ChildItem $regPath | ForEach-Object {
     $value = Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility
-    if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*') {
+    if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*') {
         Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
         Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
         Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
