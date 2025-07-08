@@ -386,7 +386,13 @@ Get-ChildItem $regPath | ForEach-Object {
         Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
         Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
         Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
-        Remove-WindowsPackage -Online -PackageName $_.PSChildName *>$null
+        try {
+            Remove-WindowsPackage -Online -PackageName $_.PSChildName -ErrorAction Stop *>$null
+        }
+        catch {
+            #ignore any errors like rpc failed etc
+        }
+        
     }
 }
 
@@ -526,9 +532,10 @@ Get-ScheduledTask -TaskPath "*Recall*" | Disable-ScheduledTask -ErrorAction Sile
 Remove-Item "`$env:Systemroot\System32\Tasks\Microsoft\Windows\WindowsAI" -Recurse -Force -ErrorAction SilentlyContinue
 `$initConfigID = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI\Recall\InitialConfiguration" -Name 'Id'
 `$policyConfigID = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI\Recall\PolicyConfiguration" -Name 'Id'
-
+if(`$initConfigID -and `$policyConfigID){
 Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\`$initConfigID" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\`$policyConfigID" -Recurse -Force -ErrorAction SilentlyContinue
+}
 Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI" -Force -Recurse -ErrorAction SilentlyContinue
 "@
 $subScript = "$env:TEMP\RemoveRecallTasks.ps1"
