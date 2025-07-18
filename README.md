@@ -20,6 +20,7 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
  - Delete any screenshots and data stored by Recall
  - Remove Recall Scheduled Task
  - Remove Machine Learning DLL's
+ - Remove Hidden AI CBS Packages
 
 > [!IMPORTANT]  
 > **HELP WANTED**
