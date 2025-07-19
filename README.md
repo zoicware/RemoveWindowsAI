@@ -30,6 +30,19 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
 > If you have one of these PCs submit an issue so we can check if the script is missing anything
 
 ---
+
+ ### How to Use
+ **Run From Powershell Console as Administrator**
+ ```PowerShell
+ iwr https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1 | iex
+ ```
+ 
+
+
+![image](https://github.com/user-attachments/assets/be4c29da-8a60-43e7-a63b-5d4415cc31a6)
+
+---
+
 ### Updates
 
 Given that Microsoft are continually updating and adding new AI features this script will attempt to stay updated for the newest stable build.
@@ -43,22 +56,6 @@ Given that Microsoft are continually updating and adding new AI features this sc
 >
 > If you find an AI feature or registry key that is not currently removed or disabled by the script submit an issue with as much information as possible and I will add it to the script.
 
-
-
-
----
-
- ### How to Use
- **Run From Powershell Console as Administrator**
- ```PowerShell
- iwr https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1 | iex
- ```
- 
-
-
-![image](https://github.com/user-attachments/assets/be4c29da-8a60-43e7-a63b-5d4415cc31a6)
-
----
 
 ### Join The Discord
 
