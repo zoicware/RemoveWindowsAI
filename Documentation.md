@@ -56,4 +56,10 @@
 #### Removing AI Files and Folders
 - The script will forcibly remove the Appx package install locations, remove Machine Learning Dlls, and hidden Copilot installers.
 
+#### Disable Rewrite In Notepad
+- There is two methods of doing this, the first way is loading the settings.dat file from notepads appdata directory into registry and setting the `RewriteEnabled` key to false
+- Later on Microsoft added a much simpler policy to disable this, the script does both methods to be sure its disabled 
 
+#### Remove Recall Scheduled Task
+- This will create another sub script in `%TEMP%` in order to run with system privileges
+  - The script will agressively remove Recall's scheduled tasks by removing the files as well as the registry entries 
