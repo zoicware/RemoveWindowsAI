@@ -21,6 +21,11 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
  - Remove Recall Scheduled Task
  - Remove Machine Learning DLL's
  - Remove Hidden AI CBS Packages
+  
+### Read More In Depth Here
+> **[Documentation](https://github.com/zoicware/RemoveWindowsAI/blob/main/Documentation.md)**
+
+---
 
 > [!IMPORTANT]  
 > **HELP WANTED**
