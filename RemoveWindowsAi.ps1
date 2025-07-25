@@ -230,7 +230,7 @@ if (!(test-path $packageRemovalPath)) {
 
 #needed for separate powershell sessions
 $aipackages = @(
-    'MicrosoftWindows.Client.Photon'
+    # 'MicrosoftWindows.Client.Photon'
     'MicrosoftWindows.Client.AIX'
     'MicrosoftWindows.Client.CoPilot'
     'Microsoft.Windows.Ai.Copilot.Provider'
@@ -267,7 +267,6 @@ $aipackages = @(
 
 $code = @'
 $aipackages = @(
-    'MicrosoftWindows.Client.Photon'
     'MicrosoftWindows.Client.AIX'
     'MicrosoftWindows.Client.CoPilot'
     'Microsoft.Windows.Ai.Copilot.Provider'
@@ -447,17 +446,18 @@ foreach ($package in $aipackages) {
 
 foreach ($Path in $packagesPath) {
     #only remove dlls from photon to prevent startmenu from breaking
-    if ($path -like '*Photon*') {
-        $command = "`$dlls = (Get-ChildItem -Path $Path -Filter *.dll).FullName; foreach(`$dll in `$dlls){Remove-item ""`$dll"" -force}"
-        Run-Trusted -command $command -psversion $psversion
-        Start-Sleep 1
-    }
-    else {
-        $command = "Remove-item ""$Path"" -force -recurse"
-        Run-Trusted -command $command -psversion $psversion
-        Start-Sleep 1
-    }
+    # if ($path -like '*Photon*') {
+    #     $command = "`$dlls = (Get-ChildItem -Path $Path -Filter *.dll).FullName; foreach(`$dll in `$dlls){Remove-item ""`$dll"" -force}"
+    #     Run-Trusted -command $command -psversion $psversion
+    #     Start-Sleep 1
+    # }
+    # else {
+    $command = "Remove-item ""$Path"" -force -recurse"
+    Run-Trusted -command $command -psversion $psversion
+    Start-Sleep 1
+    #  }
 }
+
 
 #remove machine learning dlls
 $paths = @(
