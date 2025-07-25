@@ -3,7 +3,14 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     Exit	
 }
 
-function Run-Trusted([String]$command) {
+function Run-Trusted([String]$command, $psversion) {
+
+    if ($psversion -eq 7) {
+        $psexe = 'pwsh.exe'
+    }
+    else {
+        $psexe = 'PowerShell.exe'
+    }
 
     try {
         Stop-Service -Name TrustedInstaller -Force -ErrorAction Stop -WarningAction Stop
@@ -23,7 +30,7 @@ function Run-Trusted([String]$command) {
     $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
     $base64Command = [Convert]::ToBase64String($bytes)
     #change bin to command
-    sc.exe config TrustedInstaller binPath= "cmd.exe /c powershell.exe -encodedcommand $base64Command" | Out-Null
+    sc.exe config TrustedInstaller binPath= "cmd.exe /c $psexe -encodedcommand $base64Command" | Out-Null
     #run the command
     sc.exe start TrustedInstaller | Out-Null
     #set bin back to default
@@ -53,6 +60,15 @@ function Write-Status {
 }
 
 Write-Host '~ ~ ~ Remove Windows AI by @zoicware ~ ~ ~' -ForegroundColor DarkCyan
+
+#get powershell version to ensure run-trusted doesnt enter an infinite loop
+$version = $PSVersionTable.PSVersion
+if ($version -like '7*') {
+    $psversion = 7
+}
+else {
+    $psversion = 5
+}
 
 Write-Status -msg 'Killing AI Processes...'
 #kill ai processes to ensure script runs smoothly
@@ -149,7 +165,7 @@ foreach ($key in $keys) {
         if ($fullkey.Length -gt 1) {
             foreach ($multikey in $fullkey) {
                 $command = "Remove-Item -Path `"registry::$multikey`" -Force -Recurse"
-                Run-Trusted -command $command
+                Run-Trusted -command $command -psversion $psversion
                 Start-Sleep 1
                 #remove any regular admin that have trusted installer bug
                 Remove-Item -Path "registry::$multikey" -Force -Recurse -ErrorAction SilentlyContinue
@@ -157,7 +173,7 @@ foreach ($key in $keys) {
         }
         else {
             $command = "Remove-Item -Path `"registry::$fullKey`" -Force -Recurse"
-            Run-Trusted -command $command
+            Run-Trusted -command $command -psversion $psversion
             Start-Sleep 1
             #remove any regular admin that have trusted installer bug
             Remove-Item -Path "registry::$fullKey" -Force -Recurse -ErrorAction SilentlyContinue
@@ -346,7 +362,7 @@ catch {
 
 Write-Status -msg 'Removing AI Appx Packages...'
 $command = "&$env:TEMP\aiPackageRemoval.ps1"
-Run-Trusted -command $command
+Run-Trusted -command $command -psversion $psversion
 
 #check packages removal
 do {
@@ -354,7 +370,7 @@ do {
     $packages = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name }
     if ($packages) {
         $command = "&$env:TEMP\aiPackageRemoval.ps1"
-        Run-Trusted -command $command
+        Run-Trusted -command $command -psversion $psversion
     }
     
 }while ($packages)
@@ -433,12 +449,12 @@ foreach ($Path in $packagesPath) {
     #only remove dlls from photon to prevent startmenu from breaking
     if ($path -like '*Photon*') {
         $command = "`$dlls = (Get-ChildItem -Path $Path -Filter *.dll).FullName; foreach(`$dll in `$dlls){Remove-item ""`$dll"" -force}"
-        Run-Trusted -command $command
+        Run-Trusted -command $command -psversion $psversion
         Start-Sleep 1
     }
     else {
         $command = "Remove-item ""$Path"" -force -recurse"
-        Run-Trusted -command $command
+        Run-Trusted -command $command -psversion $psversion
         Start-Sleep 1
     }
 }
@@ -459,7 +475,7 @@ foreach ($path in $paths) {
     catch {
         #takeown didnt work remove file with system priv
         $command = "Remove-Item -Path $path -Force"
-        Run-Trusted -command $command 
+        Run-Trusted -command $command -psversion $psversion
     }
 }
 
@@ -497,7 +513,7 @@ foreach ($installer in $installers) {
     catch {
         #takeown didnt work remove file with system priv
         $command = "Remove-Item -Path $($installer.FullName) -Force"
-        Run-Trusted -command $command 
+        Run-Trusted -command $command -psversion $psversion
     }
     
 }
@@ -550,7 +566,7 @@ New-Item $subScript -Force | Out-Null
 Set-Content $subScript -Value $code -Force
 
 $command = "&$subScript"
-Run-Trusted -command $command
+Run-Trusted -command $command -psversion $psversion
 Start-Sleep 1
 
 #cleanup code
