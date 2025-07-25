@@ -519,6 +519,18 @@ foreach ($installer in $installers) {
 }
 
 
+#remove ai from outlook/office
+$aiPaths = @(
+    "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16\AI",
+    "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX86\Microsoft Shared\Office16\AI"
+)
+
+foreach ($path in $aiPaths) {
+    if (Test-Path $path -PathType Container -ErrorAction SilentlyContinue) {
+        Remove-Item $path -Recurse -Force
+    }
+}
+
 #hide ai components in immersive settings
 Write-Status -msg 'Hiding Ai Components in Settings...'
 Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d 'hide:aicomponents;' /f >$null
