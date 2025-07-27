@@ -420,10 +420,28 @@ Get-ChildItem $regPath | ForEach-Object {
 
 Write-Status -msg 'Removing Appx Package Files...'
 #-----------------------------------------------------------------------remove files
-$appsPath = 'C:\Windows\SystemApps'
-$appsPath2 = 'C:\Program Files\WindowsApps'
+$appsPath = "$env:SystemRoot\SystemApps"
+if (!(Test-Path $appsPath)) {
+    $appsPath = "$env:windir\SystemApps"
+}
+$appsPath2 = "$env:ProgramFiles\WindowsApps"
+
+$appsPath3 = "$env:ProgramData\Microsoft\Windows\AppRepository"
+
+$appsPath4 = "$env:SystemRoot\servicing\Packages"
+if (!(Test-Path $appsPath4)) {
+    $appsPath4 = "$env:windir\servicing\Packages"
+}
+
+$appsPath5 = "$env:SystemRoot\System32\CatRoot"
+if (!(Test-Path $appsPath5)) {
+    $appsPath5 = "$env:windir\System32\CatRoot"
+}
 $pathsSystemApps = (Get-ChildItem -Path $appsPath -Directory -Force).FullName 
 $pathsWindowsApps = (Get-ChildItem -Path $appsPath2 -Directory -Force).FullName 
+$pathsAppRepo = (Get-ChildItem -Path $appsPath3 -Directory -Force -Recurse).FullName 
+$pathsServicing = (Get-ChildItem -Path $appsPath4 -Directory -Force -Recurse).FullName
+$pathsCatRoot = (Get-ChildItem -Path $appsPath5 -Directory -Force -Recurse).FullName 
 
 $packagesPath = @()
 #get full path
@@ -441,6 +459,25 @@ foreach ($package in $aipackages) {
         }
     }
 
+    foreach ($path in $pathsAppRepo) {
+        if ($path -like "*$package*") {
+            $packagesPath += $path
+        }
+    }
+
+}
+
+#get additional files
+foreach ($path in $pathsServicing) {
+    if ($path -like '*UserExperience-AIX*' -or $path -like '*Copilot*' -or $path -like '*UserExperience-Recall*' -or $path -like '*CoreAI*') {
+        $packagesPath += $path
+    }
+}
+
+foreach ($path in $pathsCatRoot) {
+    if ($path -like '*UserExperience-AIX*' -or $path -like '*Copilot*' -or $path -like '*UserExperience-Recall*' -or $path -like '*CoreAI*') {
+        $packagesPath += $path
+    }
 }
 
 
@@ -465,6 +502,7 @@ $paths = @(
     "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.dll"
     "$env:SystemRoot\System32\Windows.AI.MachineLearning.Preview.dll"
     "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.Preview.dll"
+    "$env:SystemRoot\System32\SettingsHandlers_Copilot.dll"
 )
 foreach ($path in $paths) {
     takeown /f $path *>$null
