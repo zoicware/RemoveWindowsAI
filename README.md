@@ -42,9 +42,10 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
  iwr https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1 | iex
  ```
  
+<img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/5566675c-dbaf-4df9-84d7-f25e3c8ede0e" />
 
 
-![image](https://github.com/user-attachments/assets/be4c29da-8a60-43e7-a63b-5d4415cc31a6)
+
 
 ---
 
