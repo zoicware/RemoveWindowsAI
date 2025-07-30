@@ -597,6 +597,7 @@ function Hide-AI-Components {
 function Disable-Notepad-Rewrite {
     #disable rewrite for notepad
     Write-Status -msg 'Disabling Rewrite Ai Feature for Notepad...'
+    taskkill /im notepad.exe /f *>$null
     #load notepad settings
     reg load HKU\TEMP "$env:LOCALAPPDATA\Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\Settings\settings.dat" >$null
     #add disable rewrite
