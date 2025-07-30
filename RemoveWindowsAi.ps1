@@ -585,6 +585,18 @@ function Remove-AI-Files {
     #remove any screenshots from recall
     Write-Status -msg 'Removing Any Screenshots By Recall...'
     Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorAction SilentlyContinue
+
+    #remove ai uri handlers
+    Write-Status -msg 'Removing AI URI Handlers...'
+    $uris = @(
+        'registry::HKEY_CLASSES_ROOT\ms-office-ai'
+        'registry::HKEY_CLASSES_ROOT\ms-copilot'
+        'registry::HKEY_CLASSES_ROOT\ms-clicktodo'
+    )
+
+    foreach ($uri in $uris) {
+        Remove-Item $uri -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 
