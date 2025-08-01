@@ -37,14 +37,45 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
 ---
 
  ### How to Use
- **Run From Powershell Console as Administrator**
- ```PowerShell
- iwr https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1 | iex
- ```
  
-<img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/5566675c-dbaf-4df9-84d7-f25e3c8ede0e" />
+ #### Run From Powershell Console as Administrator
+ ---
 
+ **Launch with UI**
+ ```PowerShell
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1")))
+ ```
 
+ <details>  
+  <summary>Click to View UI</summary>
+  <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/5566675c-dbaf-4df9-84d7-f25e3c8ede0e" />
+</details>  
+
+&nbsp;
+
+**Run in Non-Interactive Mode with All Options**
+ ```PowerShell
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -AllOptions
+ ```
+
+**Run with Specific Options Example**
+ ```PowerShell
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -Options DisableRegKeys,RemoveNudgesKeys,RemoveAppxPackages
+ ```
+
+**All Possible Options:**
+```
+DisableRegKeys          
+RemoveNudgesKeys     
+DisableCopilotPolicies       
+RemoveAppxPackages        
+RemoveRecallFeature 
+RemoveCBSPackages         
+RemoveAIFiles               
+HideAIComponents            
+DisableRewrite      
+RemoveRecallTasks
+```
 
 
 ---
