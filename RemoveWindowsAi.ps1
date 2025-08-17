@@ -129,8 +129,38 @@ else {
     $Global:psversion = 5
 }
 
+if ($EnableLogging) {
+    $date = (Get-Date).ToString('MM-dd-yyyy-HH:mm') -replace ':'
+    $Global:logPath = "$env:USERPROFILE\RemoveWindowsAI$date.log"
+    New-Item $logPath -Force | Out-Null
+    Write-Status -msg "Starting Log at [$logPath]"
+    #start and stop the transcript to get the header
+    Start-Transcript -Path $logPath -IncludeInvocationHeader | Out-Null
+    Stop-Transcript | Out-Null
+
+    #create info object
+    $Global:logInfo = [PSCustomObject]@{
+        Line   = $null
+        Result = $null
+    }
+}
 
 #=====================================================================================
+
+function Add-LogInfo {
+    param(
+        [string]$logPath,
+        $info
+    )
+
+    $content = @"
+    ====================================
+    Line: $($info.Line)
+    Result: $($info.Result)
+"@
+
+    Add-Content $logPath -Value $content | Out-Null
+}
 
 function Disable-Registry-Keys {
     #maybe add params for particular parts
@@ -402,7 +432,7 @@ foreach ($choice in $aipackages) {
     }
     catch {
         #user has set powershell execution policy via group policy, to change it we need to update the registry 
-        $ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell' -Name 'ExecutionPolicy' -ErrorAction SilentlyContinue
+        $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell' -Name 'ExecutionPolicy' -ErrorAction SilentlyContinue
         Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'EnableScripts' /t REG_DWORD /d '1' /f >$null
         Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
     }
@@ -413,17 +443,50 @@ foreach ($choice in $aipackages) {
     Run-Trusted -command $command -psversion $psversion
 
     #check packages removal
+    #exit loop after 10 tries
+    $attempts = 0
     do {
         Start-Sleep 1
         $packages = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name }
         if ($packages) {
+            $attempts++
+            if ($EnableLogging) {
+                $Global:logInfo.Line = "Attempting to Remove Appx Packages, Attempt: $attempts"
+                $Global:logInfo.Result = "Found Packages: $packages"
+                Add-LogInfo -logPath $logPath -info $Global:logInfo
+            }
             $command = "&$env:TEMP\aiPackageRemoval.ps1"
             Run-Trusted -command $command -psversion $psversion
         }
     
-    }while ($packages)
+    }while ($packages -and $attempts -lt 10)
 
-    Write-Status -msg 'Packages Removed Sucessfully...'
+    if ($EnableLogging) {
+        if ($attempts -ge 10) {
+            Write-Status -msg 'Packages Removal Failed...' -errorOutput $true
+            $Global:logInfo.Line = 'Removing Appx Packages'
+            $Global:logInfo.Result = "Removal Failed, Reached Max Attempts (10)... Leftover Packages: $packages"
+            Add-LogInfo -logPath $logPath -info $Global:logInfo
+        }
+        else {
+            Write-Status -msg 'Packages Removed Sucessfully...'
+            $Global:logInfo.Line = 'Removing Appx Packages'
+            $Global:logInfo.Result = 'Removal Success'
+            Add-LogInfo -logPath $logPath -info $Global:logInfo
+        }
+    }
+    else {
+        if ($attempts -ge 10) {
+            Write-Status -msg 'Packages Removal Failed...' -errorOutput $true
+            Write-Status -msg 'Use the Enable Logging Switch to Get More Info...'
+        }
+        else {
+            Write-Status -msg 'Packages Removed Sucessfully...'
+        }
+        
+    }
+
+    
 
     ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
     $eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
