@@ -209,6 +209,9 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeFill' /t REG_DWORD /d '1' /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeErase' /t REG_DWORD /d '1' /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableRemoveBackground' /t REG_DWORD /d '1' /f *>$null
+    #disable ai writing assistant in notepad
+    Write-Status -msg 'Disabling Copilot for Notepad...'
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\WindowsNotepad' /v 'DisableAIFeatures' /t REG_DWORD /d '1' /f *>$null
     Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' /v 'Start' /t REG_DWORD /d '4' /f *>$null
     Stop-Service -Name WSAIFabricSvc -Force -ErrorAction SilentlyContinue
     #delete service for good measure
@@ -1249,4 +1252,5 @@ if ($ogExecutionPolicy) {
 
 Write-Host 'Done! Press Any Key to Exit...' -ForegroundColor Green
 $Host.UI.RawUI.ReadKey() *>$null
+
 exit
