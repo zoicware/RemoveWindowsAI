@@ -527,6 +527,8 @@ foreach ($choice in $aipackages) {
 }
 
 function Remove-Recall-Optional-Feature {
+    #doesnt seem to work just gets stuck (does anyone really want this shit lol)
+    #Enable-WindowsOptionalFeature -Online -FeatureName 'Recall' -All -NoRestart
     #remove recall optional feature 
     Write-Status -msg 'Removing Recall Optional Feature...'
     $state = (Get-WindowsOptionalFeature -Online -FeatureName 'Recall').State
@@ -741,13 +743,19 @@ function Remove-AI-Files {
 
 function Hide-AI-Components {
     #hide ai components in immersive settings
-    Write-Status -msg 'Hiding Ai Components in Settings...'
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d 'hide:aicomponents;' /f >$null
+    Write-Status -msg "$(@('Hiding','Unhiding')[$revert]) Ai Components in Settings..."
+    if ($revert) {
+        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /f >$null
+    }
+    else {
+        Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d 'hide:aicomponents;' /f >$null
+    }
 }
 
 function Disable-Notepad-Rewrite {
     #disable rewrite for notepad
-    Write-Status -msg 'Disabling Rewrite Ai Feature for Notepad...'
+    Write-Status -msg "$(@('Disabling','Enabling')[$revert]) Rewrite Ai Feature for Notepad..."
+    <#
     taskkill /im notepad.exe /f *>$null
     #load notepad settings
     reg load HKU\TEMP "$env:LOCALAPPDATA\Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\Settings\settings.dat" >$null
@@ -763,8 +771,9 @@ Windows Registry Editor Version 5.00
     Start-Sleep 1
     reg unload HKU\TEMP >$null
     Remove-Item "$env:TEMP\DisableRewrite.reg" -Force -ErrorAction SilentlyContinue
-    #above is old method before this policy to disable ai in notepad, leaving older method just incase 
-    Reg.exe add 'HKLM\SOFTWARE\Policies\WindowsNotepad' /v 'DisableAIFeatures' /t REG_DWORD /d '1' /f *>$null
+    #>
+    #above is old method before this policy to disable ai in notepad, [DEPRECIATED]
+    Reg.exe add 'HKLM\SOFTWARE\Policies\WindowsNotepad' /v 'DisableAIFeatures' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
 }
 
 
