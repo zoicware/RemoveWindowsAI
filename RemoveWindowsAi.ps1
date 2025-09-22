@@ -247,6 +247,9 @@ function Disable-Registry-Keys {
 }
 
 
+# =========================
+# prob not worth trying to restore shouldnt break any functionality if the rest is restored 
+# =========================
 function Remove-Copilot-Nudges-Keys {
     #prefire copilot nudges package by deleting the registry keys 
     Write-Status -msg 'Removing Copilot Nudges Registry Keys...'
@@ -296,7 +299,7 @@ function Disable-Copilot-Policies {
     #disable copilot policies in region policy json
     $JSONPath = "$env:windir\System32\IntegratedServicesRegionPolicySet.json"
     if (Test-Path $JSONPath) {
-        Write-Host 'Disabling CoPilot Policies in ' -NoNewline
+        Write-Host "$(@('Disabling','Enabling')[$revert]) CoPilot Policies in " -NoNewline -ForegroundColor Cyan
         Write-Host "[$JSONPath]" -ForegroundColor Yellow
 
         #takeownership
@@ -308,11 +311,11 @@ function Disable-Copilot-Policies {
         try {
             $copilotPolicies = $jsonContent.policies | Where-Object { $_.'$comment' -like '*CoPilot*' }
             foreach ($policies in $copilotPolicies) {
-                $policies.defaultState = 'disabled'
+                $policies.defaultState = @('disabled', 'enabled')[$revert]
             }
             $newJSONContent = $jsonContent | ConvertTo-Json -Depth 100
             Set-Content $JSONPath -Value $newJSONContent -Force
-            Write-Status -msg "$($copilotPolicies.count) CoPilot Policies Disabled"
+            Write-Status -msg "$($copilotPolicies.count) CoPilot Policies $(@('Disabled','Enabled')[$revert])"
         }
         catch {
             Write-Status -msg 'CoPilot Not Found in IntegratedServicesRegionPolicySet' -errorOutput $true
