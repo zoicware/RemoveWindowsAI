@@ -27,21 +27,13 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
 
 ---
 
-> [!IMPORTANT]  
-> **HELP WANTED**
->
-> Currently, the script contains appx packages installed on Copilot+ PCs however, there could be more on different configurations as well as other features
-> 
-> If you have one of these PCs submit an issue so we can check if the script is missing anything
-
----
 
  ### How to Use
  
  #### Run From Powershell Console as Administrator
  ---
 
- **Launch with UI**
+ ### Launch with UI
  ```PowerShell
  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1")))
  ```
@@ -52,6 +44,8 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
 </details>  
 
 &nbsp;
+
+### Command Line Options
 
 **Run in Non-Interactive Mode with All Options**
  ```PowerShell
@@ -97,5 +91,6 @@ Given that Microsoft are continually updating and adding new AI features this sc
 ### Join The Discord
 
 [![Discord](https://discordapp.com/api/guilds/1173717737017716777/widget.png?style=banner1)](https://discord.gg/VsC7XS5vgA)
+
 
 
