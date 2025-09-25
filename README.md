@@ -40,7 +40,7 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
 
  <details>  
   <summary>Click to View UI</summary>
-  <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/5566675c-dbaf-4df9-84d7-f25e3c8ede0e" />
+  <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/92499461-f0d3-40f3-94f6-6d7a0d49fc10" />
 </details>  
 
 &nbsp;
@@ -51,6 +51,8 @@ The current 24H2 build of Windows 11 and future builds will include increasingly
  ```PowerShell
  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -AllOptions
  ```
+
+--- 
 
 **Run with Specific Options Example**
  ```PowerShell
@@ -72,6 +74,23 @@ RemoveRecallTasks
 ```
 
 
+**Run with Backup Mode Enabled**
+
+> [!NOTE]
+> Backup Mode needs to be enabled to be able to fully revert
+> 
+ ```PowerShell
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -backupMode -AllOptions
+ ```
+
+---
+
+**Revert Changes**
+
+ ```PowerShell
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -revertMode -AllOptions
+ ```
+
 ---
 
 ### Updates
@@ -91,6 +110,7 @@ Given that Microsoft are continually updating and adding new AI features this sc
 ### Join The Discord
 
 [![Discord](https://discordapp.com/api/guilds/1173717737017716777/widget.png?style=banner1)](https://discord.gg/VsC7XS5vgA)
+
 
 
 
