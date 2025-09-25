@@ -13,7 +13,8 @@ param(
         'RemoveRecallTasks')]
     [array]$Options,
     [switch]$AllOptions,
-    [switch]$revertMode
+    [switch]$revertMode,
+    [switch]$backupMode
 )
 
 if ($nonInteractive) {
@@ -37,6 +38,10 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
         if ($revertMode) {
             $arglist = $arglist + ' -revertMode'
+        }
+
+        if ($backupMode) {
+            $arglist = $arglist + '-backupMode'
         }
 
 
@@ -106,6 +111,215 @@ function Run-Trusted([String]$command, $psversion) {
     
 }
 
+# function from: https://github.com/the-loan-wolf/Appx-Backup/blob/master/Appx-Backup.ps1
+function Backup-Appx {
+
+    param (
+        [Parameter(Mandatory = $True)]
+        [string] $WSAppPath,
+
+        [Parameter(Mandatory = $True)]
+        [string] $WSAppOutputPath
+    )
+
+    function Get-FileFromWeb {
+        param (
+            # Parameter help description
+            [Parameter(Mandatory)]
+            [string]$URL,
+      
+            # Parameter help description
+            [Parameter(Mandatory)]
+            [string]$File 
+        )
+        Begin {
+           
+        }
+        Process {
+            try {
+                $storeEAP = $ErrorActionPreference
+                $ErrorActionPreference = 'Stop'
+            
+                # invoke request
+                $request = [System.Net.HttpWebRequest]::Create($URL)
+                $response = $request.GetResponse()
+      
+                if ($response.StatusCode -eq 401 -or $response.StatusCode -eq 403 -or $response.StatusCode -eq 404) {
+                    throw "Remote file either doesn't exist, is unauthorized, or is forbidden for '$URL'."
+                }
+      
+                if ($File -match '^\.\\') {
+                    $File = Join-Path (Get-Location -PSProvider 'FileSystem') ($File -Split '^\.')[1]
+                }
+                
+                if ($File -and !(Split-Path $File)) {
+                    $File = Join-Path (Get-Location -PSProvider 'FileSystem') $File
+                }
+    
+                if ($File) {
+                    $fileDirectory = $([System.IO.Path]::GetDirectoryName($File))
+                    if (!(Test-Path($fileDirectory))) {
+                        [System.IO.Directory]::CreateDirectory($fileDirectory) | Out-Null
+                    }
+                }
+    
+                [long]$fullSize = $response.ContentLength
+                $fullSizeMB = $fullSize / 1024 / 1024
+      
+                # define buffer
+                [byte[]]$buffer = new-object byte[] 1048576
+                [long]$total = [long]$count = 0
+      
+                # create reader / writer
+                $reader = $response.GetResponseStream()
+                $writer = new-object System.IO.FileStream $File, 'Create'
+      
+                # start download
+                $finalBarCount = 0 #show final bar only one time
+                do {
+              
+                    $count = $reader.Read($buffer, 0, $buffer.Length)
+              
+                    $writer.Write($buffer, 0, $count)
+                  
+                    $total += $count
+                    $totalMB = $total / 1024 / 1024
+              
+                    if ($fullSize -gt 0) {
+                        #Show-Progress -TotalValue $fullSizeMB -CurrentValue $totalMB -ProgressText "Downloading $($File.Name)" -ValueSuffix 'MB'
+                    }
+    
+                    if ($total -eq $fullSize -and $count -eq 0 -and $finalBarCount -eq 0) {
+                        #Show-Progress -TotalValue $fullSizeMB -CurrentValue $totalMB -ProgressText "Downloading $($File.Name)" -ValueSuffix 'MB' -Complete
+                        $finalBarCount++
+                    }
+    
+                } while ($count -gt 0)
+            }
+      
+            catch {
+            
+                $ExeptionMsg = $_.Exception.Message
+                Write-Host "Download breaks with error : $ExeptionMsg"
+            }
+      
+            finally {
+                # cleanup
+                if ($reader) { $reader.Close() }
+                if ($writer) { $writer.Flush(); $writer.Close() }
+            
+                $ErrorActionPreference = $storeEAP
+                [GC]::Collect()
+            }    
+        }
+    }
+
+    function Run-Process {
+        Param ($p, $a)
+        $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+        $pinfo.FileName = $p
+        $pinfo.Arguments = $a
+        $pinfo.RedirectStandardError = $true
+        $pinfo.RedirectStandardOutput = $true
+        $pinfo.UseShellExecute = $false
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $pinfo
+        $p.Start() | Out-Null
+        $output = $p.StandardOutput.ReadToEnd()
+        $output += $p.StandardError.ReadToEnd()
+        $p.WaitForExit()
+        return $output
+    }
+    
+    #tools path
+    $WSTools = "$env:TEMP\AppxBackupTools-master\tool\x64"
+    if (!(Test-Path $WSTools)) {
+        Get-FileFromWeb -URL 'https://github.com/zoicware/AppxBackupTools/archive/refs/heads/master.zip' -File "$env:TEMP\BackupTools.zip"
+        $ProgressPreference = 'SilentlyContinue'
+        Expand-Archive "$env:TEMP\BackupTools.zip" -DestinationPath $env:TEMP    
+    }
+    
+    $WSAppXmlFile = 'AppxManifest.xml'
+    
+    # read manifest
+    $FileExists = Test-Path "$WSAppPath\$WSAppXmlFile"
+    if ($FileExists -eq $False) {
+        #temp: debug
+        Write-Status -msg 'ERROR: Windows Store manifest not found.'
+    }
+    [xml]$manifest = Get-Content "$WSAppPath\$WSAppXmlFile"
+    $WSAppName = $manifest.Package.Identity.Name
+    $WSAppPublisher = $manifest.Package.Identity.Publisher
+    
+    # prepare
+    $WSAppFileName = Get-Item $WSAppPath | Select-Object basename
+    $WSAppFileName = $WSAppFileName.BaseName
+    
+    if (Test-Path "$WSAppOutputPath\$WSAppFileName.appx") {
+        Remove-Item "$WSAppOutputPath\$WSAppFileName.appx"
+    }
+    $proc = "$WSTools\MakeAppx.exe"
+    $args = "pack /d ""$WSAppPath"" /p ""$WSAppOutputPath\$WSAppFileName.appx"" /l"
+    $output = Run-Process $proc $args
+    if ($output -inotlike '*succeeded*') {
+        Write-host '  ERROR: Appx creation failed!'
+        Write-host "  proc = $proc"
+        Write-host "  args = $args"
+        Write-host ('  ' + $output)
+        # Exit
+    }
+  
+    
+    if (Test-Path "$WSAppOutputPath\$WSAppFileName.pvk") {
+        Remove-Item "$WSAppOutputPath\$WSAppFileName.pvk"
+    }
+    if (Test-Path "$WSAppOutputPath\$WSAppFileName.cer") {
+        Remove-Item "$WSAppOutputPath\$WSAppFileName.cer"
+    }
+    $proc = "$WSTools\MakeCert.exe"
+    $args = "-n ""$WSAppPublisher"" -r -a sha256 -len 2048 -cy end -h 0 -eku 1.3.6.1.5.5.7.3.3 -b 01/01/2000 -pe -sv ""$WSAppOutputPath\$WSAppFileName.pvk"" ""$WSAppOutputPath\$WSAppFileName.cer"""
+    $output = Run-Process $proc $args
+    if ($output -inotlike '*succeeded*') {
+        Write-host 'ERROR: Certificate creation failed!'
+        Write-host "proc = $proc"
+        Write-host "args = $args"
+        Write-host ('  ' + $output)
+        #  Exit
+    }
+    
+    if (Test-Path "$WSAppOutputPath\$WSAppFileName.pfx") {
+        Remove-Item "$WSAppOutputPath\$WSAppFileName.pfx"
+    }
+    $proc = "$WSTools\Pvk2Pfx.exe"
+    $args = "-pvk ""$WSAppOutputPath\$WSAppFileName.pvk"" -spc ""$WSAppOutputPath\$WSAppFileName.cer"" -pfx ""$WSAppOutputPath\$WSAppFileName.pfx"""
+    $output = Run-Process $proc $args
+    if ($output.Length -gt 0) {
+        Write-host '  ERROR: Certificate conversion to pfx failed!'
+        Write-host "  proc = $proc"
+        Write-host "  args = $args"
+        Write-host ('  ' + $output)
+        #  Exit
+    }
+    
+    $proc = "$WSTools\SignTool.exe"
+    $args = "sign -fd SHA256 -a -f ""$WSAppOutputPath\$WSAppFileName.pfx"" ""$WSAppOutputPath\$WSAppFileName.appx"""
+    $output = Run-Process $proc $args
+    if ($output -inotlike '*successfully signed*') {
+        Write-host 'ERROR: Package signing failed!'
+        Write-host $output.Length
+        Write-host "proc = $proc"
+        Write-host "args = $args"
+        Write-host ('  ' + $output)
+        # Exit
+    }
+ 
+    Remove-Item "$WSAppOutputPath\$WSAppFileName.pvk"
+    Remove-Item "$WSAppOutputPath\$WSAppFileName.pfx"
+    
+}
+
+
+
 function Write-Status {
     param(
         [string]$msg,
@@ -156,6 +370,13 @@ if ($revertMode) {
 }
 else {
     $Global:revert = 0
+}
+
+if ($backupMode) {
+    $Global:backup = 1
+}
+else {
+    $Global:backup = 0
 }
 
 #=====================================================================================
@@ -213,6 +434,7 @@ function Disable-Registry-Keys {
     #disable additional keys
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings' /v 'AutoOpenCopilotLargeScreens' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\generativeAI' /v 'Value' /t REG_SZ /d @('Deny', 'Allow')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\systemAIModels' /v 'Value' /t REG_SZ /d @('Deny', 'Allow')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy' /v 'LetAppsAccessGenerativeAI' /t REG_DWORD /d @('2', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy' /v 'LetAppsAccessSystemAIModels' /t REG_DWORD /d @('2', '1')[$revert] /f *>$null
     Reg.exe add 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsCopilot' /v 'AllowCopilotRuntime' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
@@ -228,15 +450,25 @@ function Disable-Registry-Keys {
     $backupPath = "$env:USERPROFILE\RemoveWindowsAI\Backup"
     $backupFile = 'WSAIFabricSvc.reg'
     if ($revert) {
-        Reg.exe import "$backupPath\$backupFile" >$null
-        sc.exe create WSAIFabricSvc binPath= "$env:windir\System32\svchost.exe -k WSAIFabricSvcGroup -p" >$null
+        if (Test-Path "$backupPath\$backupFile") {
+            Reg.exe import "$backupPath\$backupFile" *>$null
+            sc.exe create WSAIFabricSvc binPath= "$env:windir\System32\svchost.exe -k WSAIFabricSvcGroup -p" *>$null
+        }
+        else {
+            Write-Status -msg "Path Not Found: $backupPath\$backupFile" -errorOutput $true
+        }
+        
     }
     else {
-        #export the service to a reg file before removing it 
-        if (!(Test-Path $backupPath)) {
-            New-Item $backupPath -Force -ItemType Directory | Out-Null
+        if ($backup) {
+            Write-Status -msg 'Backing up WSAIFabricSvc...'
+            #export the service to a reg file before removing it 
+            if (!(Test-Path $backupPath)) {
+                New-Item $backupPath -Force -ItemType Directory | Out-Null
+            }
+            Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFile" >$null
         }
-        Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFile" >$null
+        Write-Status -msg 'Removing up WSAIFabricSvc...'
         #delete the service
         sc.exe delete WSAIFabricSvc *>$null
     }
@@ -251,44 +483,46 @@ function Disable-Registry-Keys {
 # prob not worth trying to restore shouldnt break any functionality if the rest is restored 
 # =========================
 function Remove-Copilot-Nudges-Keys {
-    #prefire copilot nudges package by deleting the registry keys 
-    Write-Status -msg 'Removing Copilot Nudges Registry Keys...'
-    $keys = @(
-        'registry::HKCR\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
-        'registry::HKCR\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa',
-        'registry::HKCR\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
-        'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
-        'HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications\Backup\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
-        'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
-        'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.mca',
-        'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa'
-    )
-    #get full paths and remove
-    $fullkey = @()
-    foreach ($key in $keys) {
-        try {
-            $fullKey = Get-Item -Path $key -ErrorAction Stop
-            if ($null -eq $fullkey) { continue }
-            if ($fullkey.Length -gt 1) {
-                foreach ($multikey in $fullkey) {
-                    $command = "Remove-Item -Path `"registry::$multikey`" -Force -Recurse"
+    if (!$revert) {
+        #prefire copilot nudges package by deleting the registry keys 
+        Write-Status -msg 'Removing Copilot Nudges Registry Keys...'
+        $keys = @(
+            'registry::HKCR\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
+            'registry::HKCR\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa',
+            'registry::HKCR\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+            'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+            'HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications\Backup\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
+            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.mca',
+            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa'
+        )
+        #get full paths and remove
+        $fullkey = @()
+        foreach ($key in $keys) {
+            try {
+                $fullKey = Get-Item -Path $key -ErrorAction Stop
+                if ($null -eq $fullkey) { continue }
+                if ($fullkey.Length -gt 1) {
+                    foreach ($multikey in $fullkey) {
+                        $command = "Remove-Item -Path `"registry::$multikey`" -Force -Recurse"
+                        Run-Trusted -command $command -psversion $psversion
+                        Start-Sleep 1
+                        #remove any regular admin that have trusted installer bug
+                        Remove-Item -Path "registry::$multikey" -Force -Recurse -ErrorAction SilentlyContinue
+                    }
+                }
+                else {
+                    $command = "Remove-Item -Path `"registry::$fullKey`" -Force -Recurse"
                     Run-Trusted -command $command -psversion $psversion
                     Start-Sleep 1
                     #remove any regular admin that have trusted installer bug
-                    Remove-Item -Path "registry::$multikey" -Force -Recurse -ErrorAction SilentlyContinue
+                    Remove-Item -Path "registry::$fullKey" -Force -Recurse -ErrorAction SilentlyContinue
                 }
-            }
-            else {
-                $command = "Remove-Item -Path `"registry::$fullKey`" -Force -Recurse"
-                Run-Trusted -command $command -psversion $psversion
-                Start-Sleep 1
-                #remove any regular admin that have trusted installer bug
-                Remove-Item -Path "registry::$fullKey" -Force -Recurse -ErrorAction SilentlyContinue
-            }
         
-        }
-        catch {
-            continue
+            }
+            catch {
+                continue
+            }
         }
     }
 }
@@ -328,53 +562,99 @@ function Disable-Copilot-Policies {
 
 
 function Remove-AI-Appx-Packages {
-    #to make this part faster make a txt file in temp with chunck of removal 
-    #code and then just run that from run 
-    #trusted function due to the design of having it hidden from the user
-
-    $packageRemovalPath = "$env:TEMP\aiPackageRemoval.ps1"
-    if (!(test-path $packageRemovalPath)) {
-        New-Item $packageRemovalPath -Force | Out-Null
+    if ($revert) {
+        #install backedup appx packages
+        $appxBackup = "$env:USERPROFILE\RemoveWindowsAI\Backup\AppxBackup"
+        if (Test-Path $appxBackup) {
+            $files = Get-ChildItem $appxBackup
+            Write-Status -msg 'Installing Appx Packages...'
+            foreach ($file in $files) {
+                if ($file.FullName -like '*.cer') {
+                    #install certs
+                    Import-Certificate -FilePath $file.FullName -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+                }
+            }
+            #install the packages
+            $ProgressPreference = 'SilentlyContinue'
+            foreach ($file in $files) {
+                if ($file.FullName -like '*.appx') {
+                    Add-AppPackage -Path $file.FullName
+                }
+            }
+        }
+        else {
+            Write-Status -msg 'Unable to Find AppxBackup in User Directory!' -errorOutput $true
+        }
     }
+    else {
 
-    #needed for separate powershell sessions
-    $aipackages = @(
-        # 'MicrosoftWindows.Client.Photon'
-        'MicrosoftWindows.Client.AIX'
-        'MicrosoftWindows.Client.CoPilot'
-        'Microsoft.Windows.Ai.Copilot.Provider'
-        'Microsoft.Copilot'
-        'Microsoft.MicrosoftOfficeHub'
-        'MicrosoftWindows.Client.CoreAI'
-        #ai component packages installed on copilot+ pcs
-        'WindowsWorkload.Data.Analysis.Stx.1'
-        'WindowsWorkload.Manager.1'
-        'WindowsWorkload.PSOnnxRuntime.Stx.2.7'
-        'WindowsWorkload.PSTokenizer.Stx.2.7'
-        'WindowsWorkload.QueryBlockList.1'
-        'WindowsWorkload.QueryProcessor.Data.1'
-        'WindowsWorkload.QueryProcessor.Stx.1'
-        'WindowsWorkload.SemanticText.Data.1'
-        'WindowsWorkload.SemanticText.Stx.1'
-        'WindowsWorkload.Data.ContentExtraction.Stx.1'
-        'WindowsWorkload.ScrRegDetection.Data.1'
-        'WindowsWorkload.ScrRegDetection.Stx.1'
-        'WindowsWorkload.TextRecognition.Stx.1'
-        'WindowsWorkload.Data.ImageSearch.Stx.1'
-        'WindowsWorkload.ImageContentModeration.1'
-        'WindowsWorkload.ImageContentModeration.Data.1'
-        'WindowsWorkload.ImageSearch.Data.3'
-        'WindowsWorkload.ImageSearch.Stx.2'
-        'WindowsWorkload.ImageSearch.Stx.3'
-        'WindowsWorkload.ImageTextSearch.Data.3'
-        'WindowsWorkload.PSOnnxRuntime.Stx.3.2'
-        'WindowsWorkload.PSTokenizerShared.Data.3.2'
-        'WindowsWorkload.PSTokenizerShared.Stx.3.2'
-        'WindowsWorkload.ImageTextSearch.Stx.2'
-        'WindowsWorkload.ImageTextSearch.Stx.3'
-    )
+        #to make this part faster make a txt file in temp with chunck of removal 
+        #code and then just run that from run 
+        #trusted function due to the design of having it hidden from the user
 
-    $code = @'
+        $packageRemovalPath = "$env:TEMP\aiPackageRemoval.ps1"
+        if (!(test-path $packageRemovalPath)) {
+            New-Item $packageRemovalPath -Force | Out-Null
+        }
+
+        #needed for separate powershell sessions
+        $aipackages = @(
+            # 'MicrosoftWindows.Client.Photon'
+            'MicrosoftWindows.Client.AIX'
+            'MicrosoftWindows.Client.CoPilot'
+            'Microsoft.Windows.Ai.Copilot.Provider'
+            'Microsoft.Copilot'
+            'Microsoft.MicrosoftOfficeHub'
+            'MicrosoftWindows.Client.CoreAI'
+            #ai component packages installed on copilot+ pcs
+            'WindowsWorkload.Data.Analysis.Stx.1'
+            'WindowsWorkload.Manager.1'
+            'WindowsWorkload.PSOnnxRuntime.Stx.2.7'
+            'WindowsWorkload.PSTokenizer.Stx.2.7'
+            'WindowsWorkload.QueryBlockList.1'
+            'WindowsWorkload.QueryProcessor.Data.1'
+            'WindowsWorkload.QueryProcessor.Stx.1'
+            'WindowsWorkload.SemanticText.Data.1'
+            'WindowsWorkload.SemanticText.Stx.1'
+            'WindowsWorkload.Data.ContentExtraction.Stx.1'
+            'WindowsWorkload.ScrRegDetection.Data.1'
+            'WindowsWorkload.ScrRegDetection.Stx.1'
+            'WindowsWorkload.TextRecognition.Stx.1'
+            'WindowsWorkload.Data.ImageSearch.Stx.1'
+            'WindowsWorkload.ImageContentModeration.1'
+            'WindowsWorkload.ImageContentModeration.Data.1'
+            'WindowsWorkload.ImageSearch.Data.3'
+            'WindowsWorkload.ImageSearch.Stx.2'
+            'WindowsWorkload.ImageSearch.Stx.3'
+            'WindowsWorkload.ImageTextSearch.Data.3'
+            'WindowsWorkload.PSOnnxRuntime.Stx.3.2'
+            'WindowsWorkload.PSTokenizerShared.Data.3.2'
+            'WindowsWorkload.PSTokenizerShared.Stx.3.2'
+            'WindowsWorkload.ImageTextSearch.Stx.2'
+            'WindowsWorkload.ImageTextSearch.Stx.3'
+        )
+
+        if ($backup) {
+            #backup appx packages before removing them
+            $appxBackup = "$env:USERPROFILE\RemoveWindowsAI\Backup\AppxBackup"
+            if (!(Test-Path $appxBackup)) {
+                New-Item $appxBackup -ItemType Directory -Force | Out-Null
+            }
+
+            Write-Status -msg 'Backing Up AI Appx Packages...' 
+            #aix and core ai can not be backed up
+            $packagesToBackup = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name } | Where-Object { $_.Name -ne 'MicrosoftWindows.Client.AIX' -and $_.Name -ne 'MicrosoftWindows.Client.CoreAI' }
+            [System.Windows.MessageBox]::Show('Please Select [NONE] On The Following Windows' , 'INFO', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) *>$null
+            foreach ($package in $packagesToBackup) {
+                Backup-Appx -WSAppPath $package.InstallLocation -WSAppOutputPath $appxBackup
+            }
+
+            #cleanup tools
+            Remove-Item "$env:TEMP\AppxBackupTools-master\tool\x64" -Force -Recurse -ErrorAction SilentlyContinue
+            Remove-Item "$env:TEMP\BackupTools.zip" -Force -ErrorAction SilentlyContinue
+        }
+
+        $code = @'
 $aipackages = @(
     'MicrosoftWindows.Client.AIX'
     'MicrosoftWindows.Client.CoPilot'
@@ -455,115 +735,121 @@ foreach ($choice in $aipackages) {
     }
 }
 '@
-    Set-Content -Path $packageRemovalPath -Value $code -Force 
-    #allow removal script to run
-    try {
-        Set-ExecutionPolicy Unrestricted -Force -ErrorAction Stop
-    }
-    catch {
-        #user has set powershell execution policy via group policy, to change it we need to update the registry 
-        $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell' -Name 'ExecutionPolicy' -ErrorAction SilentlyContinue
-        Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'EnableScripts' /t REG_DWORD /d '1' /f >$null
-        Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
-    }
+        Set-Content -Path $packageRemovalPath -Value $code -Force 
+        #allow removal script to run
+        try {
+            Set-ExecutionPolicy Unrestricted -Force -ErrorAction Stop
+        }
+        catch {
+            #user has set powershell execution policy via group policy, to change it we need to update the registry 
+            $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell' -Name 'ExecutionPolicy' -ErrorAction SilentlyContinue
+            Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'EnableScripts' /t REG_DWORD /d '1' /f >$null
+            Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
+        }
 
 
-    Write-Status -msg 'Removing AI Appx Packages...'
-    $command = "&$env:TEMP\aiPackageRemoval.ps1"
-    Run-Trusted -command $command -psversion $psversion
+        Write-Status -msg 'Removing AI Appx Packages...'
+        $command = "&$env:TEMP\aiPackageRemoval.ps1"
+        Run-Trusted -command $command -psversion $psversion
 
-    #check packages removal
-    #exit loop after 10 tries
-    $attempts = 0
-    do {
-        Start-Sleep 1
-        $packages = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name }
-        if ($packages) {
-            $attempts++
-            if ($EnableLogging) {
-                $Global:logInfo.Line = "Attempting to Remove Appx Packages, Attempt: $attempts"
-                $Global:logInfo.Result = "Found Packages: $packages"
+        #check packages removal
+        #exit loop after 10 tries
+        $attempts = 0
+        do {
+            Start-Sleep 1
+            $packages = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name }
+            if ($packages) {
+                $attempts++
+                if ($EnableLogging) {
+                    $Global:logInfo.Line = "Attempting to Remove Appx Packages, Attempt: $attempts"
+                    $Global:logInfo.Result = "Found Packages: $packages"
+                    Add-LogInfo -logPath $logPath -info $Global:logInfo
+                }
+                $command = "&$env:TEMP\aiPackageRemoval.ps1"
+                Run-Trusted -command $command -psversion $psversion
+            }
+    
+        }while ($packages -and $attempts -lt 10)
+
+        if ($EnableLogging) {
+            if ($attempts -ge 10) {
+                Write-Status -msg 'Packages Removal Failed...' -errorOutput $true
+                $Global:logInfo.Line = 'Removing Appx Packages'
+                $Global:logInfo.Result = "Removal Failed, Reached Max Attempts (10)... Leftover Packages: $packages"
                 Add-LogInfo -logPath $logPath -info $Global:logInfo
             }
-            $command = "&$env:TEMP\aiPackageRemoval.ps1"
-            Run-Trusted -command $command -psversion $psversion
-        }
-    
-    }while ($packages -and $attempts -lt 10)
-
-    if ($EnableLogging) {
-        if ($attempts -ge 10) {
-            Write-Status -msg 'Packages Removal Failed...' -errorOutput $true
-            $Global:logInfo.Line = 'Removing Appx Packages'
-            $Global:logInfo.Result = "Removal Failed, Reached Max Attempts (10)... Leftover Packages: $packages"
-            Add-LogInfo -logPath $logPath -info $Global:logInfo
+            else {
+                Write-Status -msg 'Packages Removed Sucessfully...'
+                $Global:logInfo.Line = 'Removing Appx Packages'
+                $Global:logInfo.Result = 'Removal Success'
+                Add-LogInfo -logPath $logPath -info $Global:logInfo
+            }
         }
         else {
-            Write-Status -msg 'Packages Removed Sucessfully...'
-            $Global:logInfo.Line = 'Removing Appx Packages'
-            $Global:logInfo.Result = 'Removal Success'
-            Add-LogInfo -logPath $logPath -info $Global:logInfo
-        }
-    }
-    else {
-        if ($attempts -ge 10) {
-            Write-Status -msg 'Packages Removal Failed...' -errorOutput $true
-            Write-Status -msg 'Use the Enable Logging Switch to Get More Info...'
-        }
-        else {
-            Write-Status -msg 'Packages Removed Sucessfully...'
-        }
+            if ($attempts -ge 10) {
+                Write-Status -msg 'Packages Removal Failed...' -errorOutput $true
+                Write-Status -msg 'Use the Enable Logging Switch to Get More Info...'
+            }
+            else {
+                Write-Status -msg 'Packages Removed Sucessfully...'
+            }
         
-    }
+        }
 
     
 
-    ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
-    $eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
-    $eolKeys = (Get-ChildItem $eolPath).Name
-    foreach ($path in $eolKeys) {
-        Remove-Item "registry::$path" -Recurse -Force -ErrorAction SilentlyContinue
+        ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
+        $eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
+        $eolKeys = (Get-ChildItem $eolPath).Name
+        foreach ($path in $eolKeys) {
+            Remove-Item "registry::$path" -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
+
 }
 
 function Remove-Recall-Optional-Feature {
-    #doesnt seem to work just gets stuck (does anyone really want this shit lol)
-    #Enable-WindowsOptionalFeature -Online -FeatureName 'Recall' -All -NoRestart
-    #remove recall optional feature 
-    Write-Status -msg 'Removing Recall Optional Feature...'
-    $state = (Get-WindowsOptionalFeature -Online -FeatureName 'Recall').State
-    if ($state -and $state -ne 'DisabledWithPayloadRemoved') {
-        $ProgressPreference = 'SilentlyContinue'
-        try {
-            Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
-        }
-        catch {
-            #hide error
-        }
-    
-    } 
-}
-
-
-function Remove-AI-CBS-Packages {
-    #additional hidden packages
-    Write-Status -msg 'Removing Additional Hidden AI Packages...'
-    #unhide the packages from dism, remove owners subkey for removal 
-    $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
-    $ProgressPreference = 'SilentlyContinue'
-    Get-ChildItem $regPath | ForEach-Object {
-        $value = Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility
-        if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*') {
-            Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
-            Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
-            Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
+    if (!$revert) {
+        #doesnt seem to work just gets stuck (does anyone really want this shit lol)
+        #Enable-WindowsOptionalFeature -Online -FeatureName 'Recall' -All -NoRestart
+        #remove recall optional feature 
+        Write-Status -msg 'Removing Recall Optional Feature...'
+        $state = (Get-WindowsOptionalFeature -Online -FeatureName 'Recall').State
+        if ($state -and $state -ne 'DisabledWithPayloadRemoved') {
+            $ProgressPreference = 'SilentlyContinue'
             try {
-                Remove-WindowsPackage -Online -PackageName $_.PSChildName -ErrorAction Stop *>$null
+                Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
             }
             catch {
-                #ignore any errors like rpc failed etc
+                #hide error
             }
+    
+        } 
+    }
+}
+
+# not restoring for now shouldnt cause any issues (also may not even be possible to restore)
+function Remove-AI-CBS-Packages {
+    if (!$revert) {
+        #additional hidden packages
+        Write-Status -msg 'Removing Additional Hidden AI Packages...'
+        #unhide the packages from dism, remove owners subkey for removal 
+        $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+        $ProgressPreference = 'SilentlyContinue'
+        Get-ChildItem $regPath | ForEach-Object {
+            $value = Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility
+            if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*') {
+                Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
+                Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
+                Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
+                try {
+                    Remove-WindowsPackage -Online -PackageName $_.PSChildName -ErrorAction Stop *>$null
+                }
+                catch {
+                    #ignore any errors like rpc failed etc
+                }
         
+            }
         }
     }
 }
@@ -572,172 +858,297 @@ function Remove-AI-CBS-Packages {
 function Remove-AI-Files {
     #prob add params here for each file removal 
 
-    Write-Status -msg 'Removing Appx Package Files...'
-    #-----------------------------------------------------------------------remove files
-    $appsPath = "$env:SystemRoot\SystemApps"
-    if (!(Test-Path $appsPath)) {
-        $appsPath = "$env:windir\SystemApps"
-    }
-    $appsPath2 = "$env:ProgramFiles\WindowsApps"
-    
-    $appsPath3 = "$env:ProgramData\Microsoft\Windows\AppRepository"
-    
-    $appsPath4 = "$env:SystemRoot\servicing\Packages"
-    if (!(Test-Path $appsPath4)) {
-        $appsPath4 = "$env:windir\servicing\Packages"
-    }
-    
-    $appsPath5 = "$env:SystemRoot\System32\CatRoot"
-    if (!(Test-Path $appsPath5)) {
-        $appsPath5 = "$env:windir\System32\CatRoot"
-    }
-    $pathsSystemApps = (Get-ChildItem -Path $appsPath -Directory -Force).FullName 
-    $pathsWindowsApps = (Get-ChildItem -Path $appsPath2 -Directory -Force).FullName 
-    $pathsAppRepo = (Get-ChildItem -Path $appsPath3 -Directory -Force -Recurse).FullName 
-    $pathsServicing = (Get-ChildItem -Path $appsPath4 -Directory -Force -Recurse).FullName
-    $pathsCatRoot = (Get-ChildItem -Path $appsPath5 -Directory -Force -Recurse).FullName 
-    
-    $packagesPath = @()
-    #get full path
-    foreach ($package in $aipackages) {
-    
-        foreach ($path in $pathsSystemApps) {
-            if ($path -like "*$package*") {
-                $packagesPath += $path
+
+    if ($revert) {
+        if (Test-Path "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles") {
+            Write-Status -msg 'Restoring Appx Package Files...'
+            $paths = Get-Content "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\backupPaths.txt"
+            foreach ($path in $paths) {
+                $fileName = Split-Path $path -Leaf
+                $dest = Split-Path $path -Parent
+                try {
+                    Move-Item -Path "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\$fileName" -Destination $dest -Force -ErrorAction Stop
+                }
+                catch {
+                    $command = "Move-Item -Path `"$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\$fileName`" -Destination `"$dest`" -Force"
+                    Run-Trusted -command $command -psversion $psversion
+                    Start-Sleep 1
+                }
             }
-        }
-    
-        foreach ($path in $pathsWindowsApps) {
-            if ($path -like "*$package*") {
-                $packagesPath += $path
+
+            if (Test-Path "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI") {
+                Write-Status -msg 'Restoring Office AI Files...'
+                Move-Item "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI\x64\AI" -Destination "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16" -Force 
+                Move-Item "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI\x86\AI" -Destination "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16" -Force 
             }
-        }
-    
-        foreach ($path in $pathsAppRepo) {
-            if ($path -like "*$package*") {
-                $packagesPath += $path
+
+            Write-Status -msg 'Restoring AI URIs...'
+            $regs = Get-ChildItem "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\URIHandlers"
+            foreach ($reg in $regs) {
+                Reg.exe import $reg.FullName *>$null
             }
-        }
-    
-    }
-    
-    #get additional files
-    foreach ($path in $pathsServicing) {
-        if ($path -like '*UserExperience-AIX*' -or $path -like '*Copilot*' -or $path -like '*UserExperience-Recall*' -or $path -like '*CoreAI*') {
-            $packagesPath += $path
-        }
-    }
-    
-    foreach ($path in $pathsCatRoot) {
-        if ($path -like '*UserExperience-AIX*' -or $path -like '*Copilot*' -or $path -like '*UserExperience-Recall*' -or $path -like '*CoreAI*') {
-            $packagesPath += $path
-        }
-    }
-    
-    
-    foreach ($Path in $packagesPath) {
-        #only remove dlls from photon to prevent startmenu from breaking
-        # if ($path -like '*Photon*') {
-        #     $command = "`$dlls = (Get-ChildItem -Path $Path -Filter *.dll).FullName; foreach(`$dll in `$dlls){Remove-item ""`$dll"" -force}"
-        #     Run-Trusted -command $command -psversion $psversion
-        #     Start-Sleep 1
-        # }
-        # else {
-        $command = "Remove-item ""$Path"" -force -recurse"
-        Run-Trusted -command $command -psversion $psversion
-        Start-Sleep 1
-        #  }
-    }
-    
-    
-    #remove machine learning dlls
-    $paths = @(
-        "$env:SystemRoot\System32\Windows.AI.MachineLearning.dll"
-        "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.dll"
-        "$env:SystemRoot\System32\Windows.AI.MachineLearning.Preview.dll"
-        "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.Preview.dll"
-        "$env:SystemRoot\System32\SettingsHandlers_Copilot.dll"
-    )
-    foreach ($path in $paths) {
-        takeown /f $path *>$null
-        icacls $path /grant administrators:F /t *>$null
-        try {
-            Remove-Item -Path $path -Force -ErrorAction Stop
-        }
-        catch {
-            #takeown didnt work remove file with system priv
-            $command = "Remove-Item -Path $path -Force"
-            Run-Trusted -command $command -psversion $psversion
-        }
-    }
-    
-    Write-Status -msg 'Removing Hidden Copilot Installers...'
-    #remove package installers in edge dir
-    #installs Microsoft.Windows.Ai.Copilot.Provider
-    $dir = "${env:ProgramFiles(x86)}\Microsoft"
-    $folders = @(
-        'Edge',
-        'EdgeCore',
-        'EdgeWebView'
-    )
-    foreach ($folder in $folders) {
-        if ($folder -eq 'EdgeCore') {
-            #edge core doesnt have application folder
-            $fullPath = (Get-ChildItem -Path "$dir\$folder\*.*.*.*\copilot_provider_msix" -ErrorAction SilentlyContinue).FullName
-            
+           
+            Write-Status -msg 'Files Restored... You May Need to Repair the Apps Using the Microsoft Store'
         }
         else {
-            $fullPath = (Get-ChildItem -Path "$dir\$folder\Application\*.*.*.*\copilot_provider_msix" -ErrorAction SilentlyContinue).FullName
+            Write-Status -msg 'Unable to Find Backup Files!' -errorOutput $true
         }
-        if ($fullPath -ne $null) { Remove-Item -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue }
+       
     }
-    
-    
-    #remove additional installers
-    $inboxapps = 'C:\Windows\InboxApps'
-    $installers = Get-ChildItem -Path $inboxapps -Filter '*Copilot*'
-    foreach ($installer in $installers) {
-        takeown /f $installer.FullName *>$null
-        icacls $installer.FullName /grant administrators:F /t *>$null
-        try {
-            Remove-Item -Path $installer.FullName -Force -ErrorAction Stop
+    else {
+
+        $aipackages = @(
+            # 'MicrosoftWindows.Client.Photon'
+            'MicrosoftWindows.Client.AIX'
+            'MicrosoftWindows.Client.CoPilot'
+            'Microsoft.Windows.Ai.Copilot.Provider'
+            'Microsoft.Copilot'
+            'Microsoft.MicrosoftOfficeHub'
+            'MicrosoftWindows.Client.CoreAI'
+            #ai component packages installed on copilot+ pcs
+            'WindowsWorkload.Data.Analysis.Stx.1'
+            'WindowsWorkload.Manager.1'
+            'WindowsWorkload.PSOnnxRuntime.Stx.2.7'
+            'WindowsWorkload.PSTokenizer.Stx.2.7'
+            'WindowsWorkload.QueryBlockList.1'
+            'WindowsWorkload.QueryProcessor.Data.1'
+            'WindowsWorkload.QueryProcessor.Stx.1'
+            'WindowsWorkload.SemanticText.Data.1'
+            'WindowsWorkload.SemanticText.Stx.1'
+            'WindowsWorkload.Data.ContentExtraction.Stx.1'
+            'WindowsWorkload.ScrRegDetection.Data.1'
+            'WindowsWorkload.ScrRegDetection.Stx.1'
+            'WindowsWorkload.TextRecognition.Stx.1'
+            'WindowsWorkload.Data.ImageSearch.Stx.1'
+            'WindowsWorkload.ImageContentModeration.1'
+            'WindowsWorkload.ImageContentModeration.Data.1'
+            'WindowsWorkload.ImageSearch.Data.3'
+            'WindowsWorkload.ImageSearch.Stx.2'
+            'WindowsWorkload.ImageSearch.Stx.3'
+            'WindowsWorkload.ImageTextSearch.Data.3'
+            'WindowsWorkload.PSOnnxRuntime.Stx.3.2'
+            'WindowsWorkload.PSTokenizerShared.Data.3.2'
+            'WindowsWorkload.PSTokenizerShared.Stx.3.2'
+            'WindowsWorkload.ImageTextSearch.Stx.2'
+            'WindowsWorkload.ImageTextSearch.Stx.3'
+        )
+
+        Write-Status -msg 'Removing Appx Package Files...'
+        #-----------------------------------------------------------------------remove files
+        $appsPath = "$env:SystemRoot\SystemApps"
+        if (!(Test-Path $appsPath)) {
+            $appsPath = "$env:windir\SystemApps"
         }
-        catch {
-            #takeown didnt work remove file with system priv
-            $command = "Remove-Item -Path $($installer.FullName) -Force"
+        $appsPath2 = "$env:ProgramFiles\WindowsApps"
+    
+        $appsPath3 = "$env:ProgramData\Microsoft\Windows\AppRepository"
+    
+        $appsPath4 = "$env:SystemRoot\servicing\Packages"
+        if (!(Test-Path $appsPath4)) {
+            $appsPath4 = "$env:windir\servicing\Packages"
+        }
+    
+        $appsPath5 = "$env:SystemRoot\System32\CatRoot"
+        if (!(Test-Path $appsPath5)) {
+            $appsPath5 = "$env:windir\System32\CatRoot"
+        }
+        $pathsSystemApps = (Get-ChildItem -Path $appsPath -Directory -Force).FullName 
+        $pathsWindowsApps = (Get-ChildItem -Path $appsPath2 -Directory -Force).FullName 
+        $pathsAppRepo = (Get-ChildItem -Path $appsPath3 -Directory -Force -Recurse).FullName 
+        $pathsServicing = (Get-ChildItem -Path $appsPath4 -Directory -Force -Recurse).FullName
+        $pathsCatRoot = (Get-ChildItem -Path $appsPath5 -Directory -Force -Recurse).FullName 
+    
+        $packagesPath = @()
+        #get full path
+        foreach ($package in $aipackages) {
+    
+            foreach ($path in $pathsSystemApps) {
+                if ($path -like "*$package*") {
+                    $packagesPath += $path
+                }
+            }
+    
+            foreach ($path in $pathsWindowsApps) {
+                if ($path -like "*$package*") {
+                    $packagesPath += $path
+                }
+            }
+    
+            foreach ($path in $pathsAppRepo) {
+                if ($path -like "*$package*") {
+                    $packagesPath += $path
+                }
+            }
+    
+        }
+    
+        #get additional files
+        foreach ($path in $pathsServicing) {
+            if ($path -like '*UserExperience-AIX*' -or $path -like '*Copilot*' -or $path -like '*UserExperience-Recall*' -or $path -like '*CoreAI*') {
+                $packagesPath += $path
+            }
+        }
+    
+        foreach ($path in $pathsCatRoot) {
+            if ($path -like '*UserExperience-AIX*' -or $path -like '*Copilot*' -or $path -like '*UserExperience-Recall*' -or $path -like '*CoreAI*') {
+                $packagesPath += $path
+            }
+        }
+    
+        if ($backup) {
+            Write-Status -msg 'Backing Up AI Files...'
+            $backupDir = "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles"
+            if (!(Test-Path $backupDir)) {
+                New-Item $backupDir -Force -ItemType Directory | Out-Null
+            }
+        }
+
+        foreach ($Path in $packagesPath) {
+            #only remove dlls from photon to prevent startmenu from breaking
+            # if ($path -like '*Photon*') {
+            #     $command = "`$dlls = (Get-ChildItem -Path $Path -Filter *.dll).FullName; foreach(`$dll in `$dlls){Remove-item ""`$dll"" -force}"
+            #     Run-Trusted -command $command -psversion $psversion
+            #     Start-Sleep 1
+            # }
+            # else {
+
+            if ($backup) {
+                $backupFiles = "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\backupPaths.txt"
+                if (!(Test-Path $backupFiles -PathType Leaf)) {
+                    New-Item $backupFiles -Force -ItemType File | Out-Null
+                }
+                try {
+                    Copy-Item -Path $Path -Destination $backupDir -Force -Recurse -ErrorAction Stop
+                    Add-Content -Path $backupFiles -Value $Path
+                }
+                catch {
+                    #ignore any errors
+                }
+            }
+
+            $command = "Remove-item ""$Path"" -force -recurse"
             Run-Trusted -command $command -psversion $psversion
-        }
+            Start-Sleep 1
         
-    }
+        }
     
     
-    #remove ai from outlook/office
-    $aiPaths = @(
-        "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16\AI",
-        "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX86\Microsoft Shared\Office16\AI"
-    )
+        #remove machine learning dlls
+        $paths = @(
+            "$env:SystemRoot\System32\Windows.AI.MachineLearning.dll"
+            "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.dll"
+            "$env:SystemRoot\System32\Windows.AI.MachineLearning.Preview.dll"
+            "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.Preview.dll"
+            "$env:SystemRoot\System32\SettingsHandlers_Copilot.dll"
+        )
+        foreach ($path in $paths) {
+            takeown /f $path *>$null
+            icacls $path /grant administrators:F /t *>$null
+            try {
+                Remove-Item -Path $path -Force -ErrorAction Stop
+            }
+            catch {
+                #takeown didnt work remove file with system priv
+                $command = "Remove-Item -Path $path -Force"
+                Run-Trusted -command $command -psversion $psversion
+            }
+        }
     
-    foreach ($path in $aiPaths) {
-        if (Test-Path $path -PathType Container -ErrorAction SilentlyContinue) {
-            Remove-Item $path -Recurse -Force
+        Write-Status -msg 'Removing Hidden Copilot Installers...'
+        #remove package installers in edge dir
+        #installs Microsoft.Windows.Ai.Copilot.Provider
+        $dir = "${env:ProgramFiles(x86)}\Microsoft"
+        $folders = @(
+            'Edge',
+            'EdgeCore',
+            'EdgeWebView'
+        )
+        foreach ($folder in $folders) {
+            if ($folder -eq 'EdgeCore') {
+                #edge core doesnt have application folder
+                $fullPath = (Get-ChildItem -Path "$dir\$folder\*.*.*.*\copilot_provider_msix" -ErrorAction SilentlyContinue).FullName
+            
+            }
+            else {
+                $fullPath = (Get-ChildItem -Path "$dir\$folder\Application\*.*.*.*\copilot_provider_msix" -ErrorAction SilentlyContinue).FullName
+            }
+            if ($fullPath -ne $null) { Remove-Item -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+    
+    
+        #remove additional installers
+        $inboxapps = 'C:\Windows\InboxApps'
+        $installers = Get-ChildItem -Path $inboxapps -Filter '*Copilot*'
+        foreach ($installer in $installers) {
+            takeown /f $installer.FullName *>$null
+            icacls $installer.FullName /grant administrators:F /t *>$null
+            try {
+                Remove-Item -Path $installer.FullName -Force -ErrorAction Stop
+            }
+            catch {
+                #takeown didnt work remove file with system priv
+                $command = "Remove-Item -Path $($installer.FullName) -Force"
+                Run-Trusted -command $command -psversion $psversion
+            }
+        
+        }
+    
+    
+        #remove ai from outlook/office
+        $aiPaths = @(
+            "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16\AI",
+            "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX86\Microsoft Shared\Office16\AI"
+        )
+    
+        foreach ($path in $aiPaths) {
+            if (Test-Path $path -PathType Container -ErrorAction SilentlyContinue) {
+                if ($backup) {
+                    Write-Status -msg 'Backing Up Office AI Files...'
+                    $backupDir = "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI"
+                    if (!(Test-Path $backupDir)) {
+                        New-Item $backupDir -Force -ItemType Directory | Out-Null
+                    }
+                    if ($path -like '*ProgramFilesCommonX64*') {
+                        $backupDir = "$backupDir\x64"
+                        New-Item $backupDir -Force -ItemType Directory | Out-Null
+                    }
+                    else {
+                        $backupDir = "$backupDir\x86"
+                        New-Item $backupDir -Force -ItemType Directory | Out-Null
+                    }
+                    Copy-Item -Path $path -Destination $backupDir -Force -Recurse -ErrorAction SilentlyContinue
+                }
+                Remove-Item $path -Recurse -Force
+            }
+        }
+
+        #remove any screenshots from recall
+        Write-Status -msg 'Removing Any Screenshots By Recall...'
+        Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorAction SilentlyContinue
+
+        #remove ai uri handlers
+        Write-Status -msg 'Removing AI URI Handlers...'
+        $uris = @(
+            'registry::HKEY_CLASSES_ROOT\ms-office-ai'
+            'registry::HKEY_CLASSES_ROOT\ms-copilot'
+            'registry::HKEY_CLASSES_ROOT\ms-clicktodo'
+        )
+
+        foreach ($uri in $uris) {
+            if ($backup) {
+                if (Test-Path $uri) {
+                    $backupDir = "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\URIHandlers"
+                    if (!(Test-Path $backupDir)) {
+                        New-Item $backupDir -Force -ItemType Directory | Out-Null
+                    }
+                    $regExportPath = "$backupDir\$($uri -replace 'registry::HKEY_CLASSES_ROOT\\', '').reg"
+                    Reg.exe export ($uri -replace 'registry::', '') $regExportPath /y *>$null
+                }
+            }
+            Remove-Item $uri -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
-    #remove any screenshots from recall
-    Write-Status -msg 'Removing Any Screenshots By Recall...'
-    Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorAction SilentlyContinue
-
-    #remove ai uri handlers
-    Write-Status -msg 'Removing AI URI Handlers...'
-    $uris = @(
-        'registry::HKEY_CLASSES_ROOT\ms-office-ai'
-        'registry::HKEY_CLASSES_ROOT\ms-copilot'
-        'registry::HKEY_CLASSES_ROOT\ms-clicktodo'
-    )
-
-    foreach ($uri in $uris) {
-        Remove-Item $uri -Recurse -Force -ErrorAction SilentlyContinue
-    }
 }
 
 
@@ -873,10 +1284,16 @@ else {
     $contentRow.Height = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
     $mainGrid.RowDefinitions.Add($contentRow) | Out-Null
 
+    # Add this BEFORE your bottom row definition:
+    $toggleRow = New-Object System.Windows.Controls.RowDefinition
+    $toggleRow.Height = [System.Windows.GridLength]::new(130)  # Fixed height for toggle
+    $mainGrid.RowDefinitions.Add($toggleRow) | Out-Null
+
     $bottomRow = New-Object System.Windows.Controls.RowDefinition
-    $bottomRow.Height = [System.Windows.GridLength]::new(60)
+    $bottomRow.Height = [System.Windows.GridLength]::new(80)
     $mainGrid.RowDefinitions.Add($bottomRow) | Out-Null
 
+   
     $title = New-Object System.Windows.Controls.TextBlock
     $title.Text = 'Remove Windows AI'
     $title.FontSize = 18
@@ -980,9 +1397,189 @@ else {
         $stackPanel.Children.Add($optionContainer) | Out-Null
     }
 
+    #add switches for backup and revert modes
+    function Add-iOSToggleToUI {
+        param(
+            [Parameter(Mandatory = $true)]
+            [System.Windows.Controls.Panel]$ParentControl,
+            [bool]$IsChecked = $false,
+            [string]$Name = 'iOSToggle'
+        )
+                
+        $styleXaml = @'
+            <ResourceDictionary 
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                
+                <Style x:Key="CleanToggleStyle" TargetType="{x:Type ToggleButton}">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="BorderBrush" Value="Transparent"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Width" Value="40"/>
+                    <Setter Property="Height" Value="24"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                <Grid>
+                                    <!-- Switch Track -->
+                                    <Border x:Name="SwitchTrack" 
+                                            Width="40" Height="24" 
+                                            Background="#E5E5E7" 
+                                            CornerRadius="12"
+                                            BorderThickness="0">
+                                        
+                                        <!-- Switch Thumb -->
+                                        <Border x:Name="SwitchThumb" 
+                                                Width="20" Height="20" 
+                                                Background="White" 
+                                                CornerRadius="10"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
+                                                Margin="2,0,0,0">
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="#00000040" 
+                                                                  Direction="270" 
+                                                                  ShadowDepth="1" 
+                                                                  BlurRadius="3"
+                                                                  Opacity="0.4"/>
+                                            </Border.Effect>
+                                            <Border.RenderTransform>
+                                                <TranslateTransform x:Name="ThumbTransform" X="0"/>
+                                            </Border.RenderTransform>
+                                        </Border>
+                                    </Border>
+                                </Grid>
+                                
+                                <ControlTemplate.Triggers>
+                                    <!-- Checked State (ON) -->
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Trigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <!-- Slide thumb to right -->
+                                                    <DoubleAnimation 
+                                                        Storyboard.TargetName="ThumbTransform"
+                                                        Storyboard.TargetProperty="X"
+                                                        To="16" 
+                                                        Duration="0:0:0.2"/>
+                                                    <!-- Change track color to green -->
+                                                    <ColorAnimation 
+                                                        Storyboard.TargetName="SwitchTrack"
+                                                        Storyboard.TargetProperty="Background.Color"
+                                                        To="#34C759" 
+                                                        Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.EnterActions>
+                                        <Trigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <!-- Slide thumb to left -->
+                                                    <DoubleAnimation 
+                                                        Storyboard.TargetName="ThumbTransform"
+                                                        Storyboard.TargetProperty="X"
+                                                        To="0" 
+                                                        Duration="0:0:0.2"/>
+                                                    <!-- Change track color to gray -->
+                                                    <ColorAnimation 
+                                                        Storyboard.TargetName="SwitchTrack"
+                                                        Storyboard.TargetProperty="Background.Color"
+                                                        To="#E5E5E7" 
+                                                        Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.ExitActions>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ResourceDictionary>
+'@
+                
+        $reader = New-Object System.Xml.XmlNodeReader([xml]$styleXaml)
+        $resourceDict = [Windows.Markup.XamlReader]::Load($reader)
+                
+        $toggleButton = New-Object System.Windows.Controls.Primitives.ToggleButton
+        $toggleButton.Name = $Name
+        $toggleButton.IsChecked = $IsChecked
+        $toggleButton.Style = $resourceDict['CleanToggleStyle']
+        $ParentControl.Children.Add($toggleButton) | Out-Null
+                
+        return $toggleButton
+    }
+    
+     
+    
+    $toggleGrid = New-Object System.Windows.Controls.Grid
+    [System.Windows.Controls.Grid]::SetRow($toggleGrid, 2)  
+    $toggleGrid.Margin = '20,10,55,15'
+            
+    $row1 = New-Object System.Windows.Controls.RowDefinition
+    $row1.Height = [System.Windows.GridLength]::Auto
+    $row2 = New-Object System.Windows.Controls.RowDefinition
+    $row2.Height = [System.Windows.GridLength]::Auto
+    $toggleGrid.RowDefinitions.Add($row1) | Out-Null
+    $toggleGrid.RowDefinitions.Add($row2) | Out-Null
+            
+    $mainGrid.Children.Add($toggleGrid) | Out-Null
+            
+    $togglePanel1 = New-Object System.Windows.Controls.StackPanel
+    $togglePanel1.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+    $togglePanel1.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+    $togglePanel1.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    $togglePanel1.Margin = New-Object System.Windows.Thickness(0, 0, 0, 10) 
+    [System.Windows.Controls.Grid]::SetRow($togglePanel1, 0)
+            
+    $toggleLabel1 = New-Object System.Windows.Controls.TextBlock
+    $toggleLabel1.Text = 'Revert Mode:'
+    $toggleLabel1.Foreground = [System.Windows.Media.Brushes]::White
+    $toggleLabel1.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    $toggleLabel1.Margin = New-Object System.Windows.Thickness(0, 0, 10, 0)
+    $togglePanel1.Children.Add($toggleLabel1) | Out-Null
+            
+    $revertModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel1 -IsChecked $revert
+    $toggleGrid.Children.Add($togglePanel1) | Out-Null
+            
+    $togglePanel2 = New-Object System.Windows.Controls.StackPanel
+    $togglePanel2.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+    $togglePanel2.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+    $togglePanel2.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    [System.Windows.Controls.Grid]::SetRow($togglePanel2, 1)
+            
+    $toggleLabel2 = New-Object System.Windows.Controls.TextBlock
+    $toggleLabel2.Text = 'Backup Mode:'
+    $toggleLabel2.Foreground = [System.Windows.Media.Brushes]::White
+    $toggleLabel2.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    $toggleLabel2.Margin = New-Object System.Windows.Thickness(0, 0, 10, 0)
+    $togglePanel2.Children.Add($toggleLabel2) | Out-Null
+            
+    $backupModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel2 -IsChecked $backup
+    $toggleGrid.Children.Add($togglePanel2) | Out-Null
+        
+    $backupModeToggle.Add_Checked({ 
+            $Global:backup = 1
+        }) | Out-Null
+
+    $backupModeToggle.Add_Unchecked({ 
+            $Global:backup = 0 
+        }) | Out-Null
+
+    $revertModeToggle.Add_Checked({ 
+            $Global:revert = 1 
+        }) | Out-Null
+    $revertModeToggle.Add_Unchecked({ 
+            $Global:revert = 0 
+        }) | Out-Null
+
+   
     $bottomGrid = New-Object System.Windows.Controls.Grid
-    [System.Windows.Controls.Grid]::SetRow($bottomGrid, 2)
-    $bottomGrid.Margin = '20,10,20,10'
+    [System.Windows.Controls.Grid]::SetRow($bottomGrid, 3)
+    $bottomGrid.Margin = '25,15,25,15'
 
     $leftColumn = New-Object System.Windows.Controls.ColumnDefinition
     $leftColumn.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
@@ -1259,6 +1856,7 @@ else {
                 [System.Windows.MessageBox]::Show("An error occurred: $($_.Exception.Message)", 'Error', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
             }
         })
+
 
     $actionPanel.Children.Add($cancelButton) | Out-Null
     $actionPanel.Children.Add($applyButton) | Out-Null
