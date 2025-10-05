@@ -111,214 +111,6 @@ function Run-Trusted([String]$command, $psversion) {
     
 }
 
-# function from: https://github.com/the-loan-wolf/Appx-Backup/blob/master/Appx-Backup.ps1
-function Backup-Appx {
-
-    param (
-        [Parameter(Mandatory = $True)]
-        [string] $WSAppPath,
-
-        [Parameter(Mandatory = $True)]
-        [string] $WSAppOutputPath
-    )
-
-    function Get-FileFromWeb {
-        param (
-            # Parameter help description
-            [Parameter(Mandatory)]
-            [string]$URL,
-      
-            # Parameter help description
-            [Parameter(Mandatory)]
-            [string]$File 
-        )
-        Begin {
-           
-        }
-        Process {
-            try {
-                $storeEAP = $ErrorActionPreference
-                $ErrorActionPreference = 'Stop'
-            
-                # invoke request
-                $request = [System.Net.HttpWebRequest]::Create($URL)
-                $response = $request.GetResponse()
-      
-                if ($response.StatusCode -eq 401 -or $response.StatusCode -eq 403 -or $response.StatusCode -eq 404) {
-                    throw "Remote file either doesn't exist, is unauthorized, or is forbidden for '$URL'."
-                }
-      
-                if ($File -match '^\.\\') {
-                    $File = Join-Path (Get-Location -PSProvider 'FileSystem') ($File -Split '^\.')[1]
-                }
-                
-                if ($File -and !(Split-Path $File)) {
-                    $File = Join-Path (Get-Location -PSProvider 'FileSystem') $File
-                }
-    
-                if ($File) {
-                    $fileDirectory = $([System.IO.Path]::GetDirectoryName($File))
-                    if (!(Test-Path($fileDirectory))) {
-                        [System.IO.Directory]::CreateDirectory($fileDirectory) | Out-Null
-                    }
-                }
-    
-                [long]$fullSize = $response.ContentLength
-                $fullSizeMB = $fullSize / 1024 / 1024
-      
-                # define buffer
-                [byte[]]$buffer = new-object byte[] 1048576
-                [long]$total = [long]$count = 0
-      
-                # create reader / writer
-                $reader = $response.GetResponseStream()
-                $writer = new-object System.IO.FileStream $File, 'Create'
-      
-                # start download
-                $finalBarCount = 0 #show final bar only one time
-                do {
-              
-                    $count = $reader.Read($buffer, 0, $buffer.Length)
-              
-                    $writer.Write($buffer, 0, $count)
-                  
-                    $total += $count
-                    $totalMB = $total / 1024 / 1024
-              
-                    if ($fullSize -gt 0) {
-                        #Show-Progress -TotalValue $fullSizeMB -CurrentValue $totalMB -ProgressText "Downloading $($File.Name)" -ValueSuffix 'MB'
-                    }
-    
-                    if ($total -eq $fullSize -and $count -eq 0 -and $finalBarCount -eq 0) {
-                        #Show-Progress -TotalValue $fullSizeMB -CurrentValue $totalMB -ProgressText "Downloading $($File.Name)" -ValueSuffix 'MB' -Complete
-                        $finalBarCount++
-                    }
-    
-                } while ($count -gt 0)
-            }
-      
-            catch {
-            
-                $ExeptionMsg = $_.Exception.Message
-                Write-Host "Download breaks with error : $ExeptionMsg"
-            }
-      
-            finally {
-                # cleanup
-                if ($reader) { $reader.Close() }
-                if ($writer) { $writer.Flush(); $writer.Close() }
-            
-                $ErrorActionPreference = $storeEAP
-                [GC]::Collect()
-            }    
-        }
-    }
-
-    function Run-Process {
-        Param ($p, $a)
-        $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-        $pinfo.FileName = $p
-        $pinfo.Arguments = $a
-        $pinfo.RedirectStandardError = $true
-        $pinfo.RedirectStandardOutput = $true
-        $pinfo.UseShellExecute = $false
-        $p = New-Object System.Diagnostics.Process
-        $p.StartInfo = $pinfo
-        $p.Start() | Out-Null
-        $output = $p.StandardOutput.ReadToEnd()
-        $output += $p.StandardError.ReadToEnd()
-        $p.WaitForExit()
-        return $output
-    }
-    
-    #tools path
-    $WSTools = "$env:TEMP\AppxBackupTools-master\tool\x64"
-    if (!(Test-Path $WSTools)) {
-        Get-FileFromWeb -URL 'https://github.com/zoicware/AppxBackupTools/archive/refs/heads/master.zip' -File "$env:TEMP\BackupTools.zip"
-        $ProgressPreference = 'SilentlyContinue'
-        Expand-Archive "$env:TEMP\BackupTools.zip" -DestinationPath $env:TEMP    
-    }
-    
-    $WSAppXmlFile = 'AppxManifest.xml'
-    
-    # read manifest
-    $FileExists = Test-Path "$WSAppPath\$WSAppXmlFile"
-    if ($FileExists -eq $False) {
-        #temp: debug
-        Write-Status -msg 'ERROR: Windows Store manifest not found.'
-    }
-    [xml]$manifest = Get-Content "$WSAppPath\$WSAppXmlFile"
-    $WSAppName = $manifest.Package.Identity.Name
-    $WSAppPublisher = $manifest.Package.Identity.Publisher
-    
-    # prepare
-    $WSAppFileName = Get-Item $WSAppPath | Select-Object basename
-    $WSAppFileName = $WSAppFileName.BaseName
-    
-    if (Test-Path "$WSAppOutputPath\$WSAppFileName.appx") {
-        Remove-Item "$WSAppOutputPath\$WSAppFileName.appx"
-    }
-    $proc = "$WSTools\MakeAppx.exe"
-    $args = "pack /d ""$WSAppPath"" /p ""$WSAppOutputPath\$WSAppFileName.appx"" /l"
-    $output = Run-Process $proc $args
-    if ($output -inotlike '*succeeded*') {
-        Write-host '  ERROR: Appx creation failed!'
-        Write-host "  proc = $proc"
-        Write-host "  args = $args"
-        Write-host ('  ' + $output)
-        # Exit
-    }
-  
-    
-    if (Test-Path "$WSAppOutputPath\$WSAppFileName.pvk") {
-        Remove-Item "$WSAppOutputPath\$WSAppFileName.pvk"
-    }
-    if (Test-Path "$WSAppOutputPath\$WSAppFileName.cer") {
-        Remove-Item "$WSAppOutputPath\$WSAppFileName.cer"
-    }
-    $proc = "$WSTools\MakeCert.exe"
-    $args = "-n ""$WSAppPublisher"" -r -a sha256 -len 2048 -cy end -h 0 -eku 1.3.6.1.5.5.7.3.3 -b 01/01/2000 -pe -sv ""$WSAppOutputPath\$WSAppFileName.pvk"" ""$WSAppOutputPath\$WSAppFileName.cer"""
-    $output = Run-Process $proc $args
-    if ($output -inotlike '*succeeded*') {
-        Write-host 'ERROR: Certificate creation failed!'
-        Write-host "proc = $proc"
-        Write-host "args = $args"
-        Write-host ('  ' + $output)
-        #  Exit
-    }
-    
-    if (Test-Path "$WSAppOutputPath\$WSAppFileName.pfx") {
-        Remove-Item "$WSAppOutputPath\$WSAppFileName.pfx"
-    }
-    $proc = "$WSTools\Pvk2Pfx.exe"
-    $args = "-pvk ""$WSAppOutputPath\$WSAppFileName.pvk"" -spc ""$WSAppOutputPath\$WSAppFileName.cer"" -pfx ""$WSAppOutputPath\$WSAppFileName.pfx"""
-    $output = Run-Process $proc $args
-    if ($output.Length -gt 0) {
-        Write-host '  ERROR: Certificate conversion to pfx failed!'
-        Write-host "  proc = $proc"
-        Write-host "  args = $args"
-        Write-host ('  ' + $output)
-        #  Exit
-    }
-    
-    $proc = "$WSTools\SignTool.exe"
-    $args = "sign -fd SHA256 -a -f ""$WSAppOutputPath\$WSAppFileName.pfx"" ""$WSAppOutputPath\$WSAppFileName.appx"""
-    $output = Run-Process $proc $args
-    if ($output -inotlike '*successfully signed*') {
-        Write-host 'ERROR: Package signing failed!'
-        Write-host $output.Length
-        Write-host "proc = $proc"
-        Write-host "args = $args"
-        Write-host ('  ' + $output)
-        # Exit
-    }
- 
-    Remove-Item "$WSAppOutputPath\$WSAppFileName.pvk"
-    Remove-Item "$WSAppOutputPath\$WSAppFileName.pfx"
-    
-}
-
-
 
 function Write-Status {
     param(
@@ -562,29 +354,205 @@ function Disable-Copilot-Policies {
 
 
 function Remove-AI-Appx-Packages {
+    #function from: https://github.com/Andrew-J-Larson/OS-Scripts/blob/main/Windows/Wrapper-Functions/Download-AppxPackage-Function.ps1
+    function Download-AppxPackage {
+        param(
+            # there has to be an alternative, as sometimes the API fails on PackageFamilyName
+            [string]$PackageFamilyName,
+            [string]$ProductId,
+            [string]$outputDir
+        )
+        if (-Not ($PackageFamilyName -Or $ProductId)) {
+            # can't do anything without at least one
+            Write-Error 'Missing either PackageFamilyName or ProductId.'
+            return $null
+        }
+      
+        try {
+            $UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome # needed as sometimes the API will block things when it knows requests are coming from PowerShell
+        }
+        catch {
+            #ignore error
+        }
+      
+        $DownloadedFiles = @()
+        $errored = $false
+        $allFilesDownloaded = $true
+      
+        $apiUrl = 'https://store.rg-adguard.net/api/GetFiles'
+        $versionRing = 'Retail'
+      
+        $architecture = switch ($env:PROCESSOR_ARCHITECTURE) {
+            'x86' { 'x86' }
+            { @('x64', 'amd64') -contains $_ } { 'x64' }
+            'arm' { 'arm' }
+            'arm64' { 'arm64' }
+            default { 'neutral' } # should never get here
+        }
+      
+        if (Test-Path $outputDir -PathType Container) {
+            New-Item -Path "$outputDir\$PackageFamilyName" -ItemType Directory -Force | Out-Null
+            $downloadFolder = "$outputDir\$PackageFamilyName"
+        }
+        else {
+            $downloadFolder = Join-Path $env:TEMP $PackageFamilyName
+            if (!(Test-Path $downloadFolder -PathType Container)) {
+                New-Item $downloadFolder -ItemType Directory -Force | Out-Null
+            }
+        }
+        
+        $body = @{
+            type = if ($ProductId) { 'ProductId' } else { 'PackageFamilyName' }
+            url  = if ($ProductId) { $ProductId } else { $PackageFamilyName }
+            ring = $versionRing
+            lang = 'en-US'
+        }
+      
+        # required due to the api being protected behind Cloudflare now
+        if (-Not $apiWebSession) {
+            $global:apiWebSession = $null
+            $apiHostname = (($apiUrl.split('/'))[0..2]) -Join '/'
+            Invoke-WebRequest -Uri $apiHostname -UserAgent $UserAgent -SessionVariable $apiWebSession -UseBasicParsing
+        }
+      
+        $raw = $null
+        try {
+            $raw = Invoke-RestMethod -Method Post -Uri $apiUrl -ContentType 'application/x-www-form-urlencoded' -Body $body -UserAgent $UserAgent -WebSession $apiWebSession
+        }
+        catch {
+            $errorMsg = 'An error occurred: ' + $_
+            Write-Host $errorMsg
+            $errored = $true
+            return $false
+        }
+      
+        # hashtable of packages by $name
+        #  > values = hashtables of packages by $version
+        #    > values = arrays of packages as objects (containing: url, filename, name, version, arch, publisherId, type)
+        [Collections.Generic.Dictionary[string, Collections.Generic.Dictionary[string, array]]] $packageList = @{}
+        # populate $packageList
+        $patternUrlAndText = '<tr style.*<a href=\"(?<url>.*)"\s.*>(?<text>.*\.(app|msi)x.*)<\/a>'
+        $raw | Select-String $patternUrlAndText -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object {
+            $url = ($_.Groups['url']).Value
+            $text = ($_.Groups['text']).Value
+            $textSplitUnderscore = $text.split('_')
+            $name = $textSplitUnderscore.split('_')[0]
+            $version = $textSplitUnderscore.split('_')[1]
+            $arch = ($textSplitUnderscore.split('_')[2]).ToLower()
+            $publisherId = ($textSplitUnderscore.split('_')[4]).split('.')[0]
+            $textSplitPeriod = $text.split('.')
+            $type = ($textSplitPeriod[$textSplitPeriod.length - 1]).ToLower()
+      
+            # create $name hash key hashtable, if it doesn't already exist
+            if (!($packageList.keys -match ('^' + [Regex]::escape($name) + '$'))) {
+                $packageList["$name"] = @{}
+            }
+            # create $version hash key array, if it doesn't already exist
+            if (!(($packageList["$name"]).keys -match ('^' + [Regex]::escape($version) + '$'))) {
+                ($packageList["$name"])["$version"] = @()
+            }
+       
+            # add package to the array in the hashtable
+            ($packageList["$name"])["$version"] += @{
+                url         = $url
+                filename    = $text
+                name        = $name
+                version     = $version
+                arch        = $arch
+                publisherId = $publisherId
+                type        = $type
+            }
+        }
+      
+        # an array of packages as objects, meant to only contain one of each $name
+        $latestPackages = @()
+        # grabs the most updated package for $name and puts it into $latestPackages
+        $packageList.GetEnumerator() | ForEach-Object { ($_.value).GetEnumerator() | Select-Object -Last 1 } | ForEach-Object {
+            $packagesByType = $_.value
+            $msixbundle = ($packagesByType | Where-Object { $_.type -match '^msixbundle$' })
+            $appxbundle = ($packagesByType | Where-Object { $_.type -match '^appxbundle$' })
+            $msix = ($packagesByType | Where-Object { ($_.type -match '^msix$') -And ($_.arch -match ('^' + [Regex]::Escape($architecture) + '$')) })
+            $appx = ($packagesByType | Where-Object { ($_.type -match '^appx$') -And ($_.arch -match ('^' + [Regex]::Escape($architecture) + '$')) })
+            if ($msixbundle) { $latestPackages += $msixbundle }
+            elseif ($appxbundle) { $latestPackages += $appxbundle }
+            elseif ($msix) { $latestPackages += $msix }
+            elseif ($appx) { $latestPackages += $appx }
+        }
+      
+        # download packages
+        $latestPackages | ForEach-Object {
+            $url = $_.url
+            $filename = $_.filename
+            # TODO: may need to include detection in the future of expired package download URLs..... in the case that downloads take over 10 minutes to complete
+      
+            $downloadFile = Join-Path $downloadFolder $filename
+      
+            # If file already exists, ask to replace it
+            if (Test-Path $downloadFile) {
+                Write-Host "`"${filename}`" already exists at `"${downloadFile}`"."
+                $confirmation = ''
+                while (!(($confirmation -eq 'Y') -Or ($confirmation -eq 'N'))) {
+                    $confirmation = Read-Host "`nWould you like to re-download and overwrite the file at `"${downloadFile}`" (Y/N)?"
+                    $confirmation = $confirmation.ToUpper()
+                }
+                if ($confirmation -eq 'Y') {
+                    Remove-Item -Path $downloadFile -Force
+                }
+                else {
+                    $DownloadedFiles += $downloadFile
+                }
+            }
+      
+            if (!(Test-Path $downloadFile)) {
+                # Write-Host "Attempting download of `"${filename}`" to `"${downloadFile}`" . . ."
+                $fileDownloaded = $null
+                $PreviousProgressPreference = $ProgressPreference
+                $ProgressPreference = 'SilentlyContinue' # avoids slow download when using Invoke-WebRequest
+                try {
+                    Invoke-WebRequest -Uri $url -OutFile $downloadFile
+                    $fileDownloaded = $?
+                }
+                catch {
+                    $ProgressPreference = $PreviousProgressPreference # return ProgressPreference back to normal
+                    $errorMsg = 'An error occurred: ' + $_
+                    Write-Host $errorMsg
+                    $errored = $true
+                    break $false
+                }
+                $ProgressPreference = $PreviousProgressPreference # return ProgressPreference back to normal
+                if ($fileDownloaded) { $DownloadedFiles += $downloadFile }
+                else { $allFilesDownloaded = $false }
+            }
+        }
+      
+        if ($errored) { Write-Host 'Completed with some errors.' }
+        if (-Not $allFilesDownloaded) { Write-Host 'Warning: Not all packages could be downloaded.' }
+        return $DownloadedFiles
+    }
+
     if ($revert) {
-        #install backedup appx packages
+
+        #download appx packages from store
         $appxBackup = "$env:USERPROFILE\RemoveWindowsAI\Backup\AppxBackup"
         if (Test-Path $appxBackup) {
-            $files = Get-ChildItem $appxBackup
-            Write-Status -msg 'Installing Appx Packages...'
-            foreach ($file in $files) {
-                if ($file.FullName -like '*.cer') {
-                    #install certs
-                    Import-Certificate -FilePath $file.FullName -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+            $familyNames = Get-Content "$appxBackup\PackageFamilyNames.txt"
+            foreach ($package in $familyNames) {
+                Write-Status -msg "Attempting to Download $package..."
+                $downloadedFiles = Download-AppxPackage -PackageFamilyName $package -outputDir $appxBackup
+                $bundle = $downloadedFiles | Where-Object { $_ -match '\.appxbundle$' -or $_ -match '\.msixbundle$' } | Select-Object -First 1
+                if ($bundle) {
+                    Write-Status -msg "Installing $package..."
+                    Add-AppPackage $bundle
                 }
             }
-            #install the packages
-            $ProgressPreference = 'SilentlyContinue'
-            foreach ($file in $files) {
-                if ($file.FullName -like '*.appx') {
-                    Add-AppPackage -Path $file.FullName
-                }
-            }
+
+            #cleanup
+            Remove-Item "$appxBackup\*" -Recurse -Force -ErrorAction SilentlyContinue
         }
         else {
             Write-Status -msg 'Unable to Find AppxBackup in User Directory!' -errorOutput $true
         }
+
     }
     else {
 
@@ -635,23 +603,20 @@ function Remove-AI-Appx-Packages {
         )
 
         if ($backup) {
-            #backup appx packages before removing them
+
+            #create file with package family names for reverting
             $appxBackup = "$env:USERPROFILE\RemoveWindowsAI\Backup\AppxBackup"
             if (!(Test-Path $appxBackup)) {
                 New-Item $appxBackup -ItemType Directory -Force | Out-Null
             }
 
-            Write-Status -msg 'Backing Up AI Appx Packages...' 
-            #aix and core ai can not be backed up
-            $packagesToBackup = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name } | Where-Object { $_.Name -ne 'MicrosoftWindows.Client.AIX' -and $_.Name -ne 'MicrosoftWindows.Client.CoreAI' }
-            [System.Windows.MessageBox]::Show('Please Select [NONE] On The Following Windows' , 'INFO', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information) *>$null
-            foreach ($package in $packagesToBackup) {
-                Backup-Appx -WSAppPath $package.InstallLocation -WSAppOutputPath $appxBackup
+            $backuppath = New-Item $appxBackup -Name 'PackageFamilyNames.txt' -ItemType File -Force
+
+            $familyNames = get-appxpackage -allusers | Where-Object { $aipackages -contains $_.Name } 
+            foreach ($familyName in $familyNames) {
+                Add-Content -Path $backuppath.FullName -Value $familyName.PackageFamilyName 
             }
 
-            #cleanup tools
-            Remove-Item "$env:TEMP\AppxBackupTools-master\tool\x64" -Force -Recurse -ErrorAction SilentlyContinue
-            Remove-Item "$env:TEMP\BackupTools.zip" -Force -ErrorAction SilentlyContinue
         }
 
         $code = @'
@@ -700,7 +665,6 @@ foreach ($choice in $aipackages) {
 
         $PackageName = $appx.PackageName 
         $PackageFamilyName = ($appxpackage | Where-Object { $_.Name -eq $appx.DisplayName }).PackageFamilyName
-
         New-Item "$store\Deprovisioned\$PackageFamilyName" -force
      
         Set-NonRemovableAppsPolicy -Online -PackageFamilyName $PackageFamilyName -NonRemovable 0
@@ -715,7 +679,6 @@ foreach ($choice in $aipackages) {
         $PackageFullName = $appx.PackageFullName
         $PackageFamilyName = $appx.PackageFamilyName
         New-Item "$store\Deprovisioned\$PackageFamilyName" -force
-        
         Set-NonRemovableAppsPolicy -Online -PackageFamilyName $PackageFamilyName -NonRemovable 0
        
         #remove inbox apps
