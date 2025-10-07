@@ -264,6 +264,27 @@ function Disable-Registry-Keys {
         #delete the service
         sc.exe delete WSAIFabricSvc *>$null
     }
+    #block copilot from communicating with server
+    if ($revert) {
+        if ((Test-Path "$backupPath\HKCR_Copilot.reg") -and (Test-Path "$backupPath\HKCU_Copilot.reg")) {
+            Reg.exe import "$backupPath\HKCR_Copilot.reg" *>$null
+            Reg.exe import "$backupPath\HKCU_Copilot.reg" *>$null
+        }
+        else {
+            Write-Status -msg "Unable to Find HKCR_Copilot.reg or HKCU_Copilot.reg in [$backupPath]" -errorOutput $true
+        }
+    }
+    else {
+        if ($backup) {
+            #backup .copilot file extension
+            Reg.exe export 'HKEY_CLASSES_ROOT\.copilot' "$backupPath\HKCR_Copilot.reg" >$null
+            Reg.exe export 'HKEY_CURRENT_USER\Software\Classes\.copilot' "$backupPath\HKCU_Copilot.reg" >$null
+        }
+        Write-Status -msg 'Removing .copilot File Extension...' 
+        Reg.exe delete 'HKCU\Software\Classes\.copilot' /f *>$null
+        Reg.exe delete 'HKCR\.copilot' /f *>$null
+    }
+    
     #force policy changes
     Write-Status -msg 'Applying Registry Changes...'
     gpupdate /force >$null
