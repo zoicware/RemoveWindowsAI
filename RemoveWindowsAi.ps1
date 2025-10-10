@@ -595,6 +595,7 @@ function Remove-AI-Appx-Packages {
             'Microsoft.Copilot'
             'Microsoft.MicrosoftOfficeHub'
             'MicrosoftWindows.Client.CoreAI'
+            'Microsoft.Edge.GameAssist'
             #ai component packages installed on copilot+ pcs
             'WindowsWorkload.Data.Analysis.Stx.1'
             'WindowsWorkload.Manager.1'
@@ -648,6 +649,7 @@ $aipackages = @(
     'Microsoft.Copilot'
     'Microsoft.MicrosoftOfficeHub'
     'MicrosoftWindows.Client.CoreAI'
+    'Microsoft.Edge.GameAssist'
     'WindowsWorkload.Data.Analysis.Stx.1'
     'WindowsWorkload.Manager.1'
     'WindowsWorkload.PSOnnxRuntime.Stx.2.7'
@@ -889,6 +891,7 @@ function Remove-AI-Files {
             'Microsoft.Copilot'
             'Microsoft.MicrosoftOfficeHub'
             'MicrosoftWindows.Client.CoreAI'
+            'Microsoft.Edge.GameAssist'
             #ai component packages installed on copilot+ pcs
             'WindowsWorkload.Data.Analysis.Stx.1'
             'WindowsWorkload.Manager.1'
