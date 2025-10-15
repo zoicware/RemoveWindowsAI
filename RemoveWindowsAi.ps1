@@ -826,6 +826,7 @@ function Remove-AI-CBS-Packages {
             $value = Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility
             if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*') {
                 Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
+                New-ItemProperty "registry::$($_.Name)" -Name DefVis -PropertyType DWord -Value 2 -Force
                 Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
                 Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
                 try {
