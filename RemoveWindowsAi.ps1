@@ -222,7 +222,7 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'Microsoft365CopilotChatIconEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null #depreciated shows Unknown policy in edge://policy
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeHistoryAISearchEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'ComposeInlineEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
-    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'GenAILocalFoundationalModelSettings' /t REG_DWORD /d '1' /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'GenAILocalFoundationalModelSettings' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     #disable additional keys
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings' /v 'AutoOpenCopilotLargeScreens' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\generativeAI' /v 'Value' /t REG_SZ /d @('Deny', 'Allow')[$revert] /f *>$null
@@ -230,6 +230,10 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy' /v 'LetAppsAccessGenerativeAI' /t REG_DWORD /d @('2', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy' /v 'LetAppsAccessSystemAIModels' /t REG_DWORD /d @('2', '1')[$revert] /f *>$null
     Reg.exe add 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsCopilot' /v 'AllowCopilotRuntime' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    #disable ai actions
+    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\1853569164' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f
+    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\4098520719' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f
+    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\929719951' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f
     #disable ai image creator in paint
     Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) Image Creator In Paint..."
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableImageCreator' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
@@ -283,6 +287,38 @@ function Disable-Registry-Keys {
         Write-Status -msg 'Removing .copilot File Extension...' 
         Reg.exe delete 'HKCU\Software\Classes\.copilot' /f *>$null
         Reg.exe delete 'HKCR\.copilot' /f *>$null
+    }
+
+    #disabling and removing voice access, recently added ai powered
+    Reg.exe add 'HKCU\Software\Microsoft\VoiceAccess' /v 'RunningState' /t REG_DWORD /d @('0', '1')[$revert] /f
+    Reg.exe add 'HKCU\Software\Microsoft\Windows NT\CurrentVersion\AccessibilityTemp' /v @('0', '1')[$revert] /t REG_DWORD /d '0' /f
+    $startMenu = "$env:appdata\Microsoft\Windows\Start Menu\Programs\Accessibility"
+    $voiceExe = "$env:windir\System32\voiceaccess.exe"
+    if ($backup) {
+        Write-Status -msg 'Backing up Voice Access...'
+        if (!(Test-Path $backupPath)) {
+            New-Item $backupPath -Force -ItemType Directory | Out-Null
+        }
+        Copy-Item $voiceExe -Destination $backupPath -Force | Out-Null
+        Copy-Item "$startMenu\VoiceAccess.lnk" -Destination $backupPath -Force | Out-Null
+    }
+    
+    if ($revert) {
+        if ((Test-Path "$backupPath\VoiceAccess.exe") -and (Test-Path "$backupPath\VoiceAccess.lnk")) {
+            Write-Status -msg 'Restoring Voice Access...'
+            Move-Item "$backupPath\VoiceAccess.exe" -Destination "$env:windir\System32" -Force | Out-Null
+            Move-Item "$backupPath\VoiceAccess.lnk" -Destination $startMenu -Force | Out-Null
+        }
+        else {
+            Write-Status -msg 'Voice Access Backup NOT Found!' -errorOutput $true
+        }
+    }
+    else {
+        Write-Status -msg 'Removing Voice Access...'
+        $command = "Remove-item -path $env:windir\System32\voiceaccess.exe -force"
+        Run-Trusted -command $command
+        Start-Sleep 1
+        Remove-Item "$startMenu\VoiceAccess.lnk" -Force -ErrorAction SilentlyContinue
     }
     
     #force policy changes
