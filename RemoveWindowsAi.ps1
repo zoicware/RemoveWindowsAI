@@ -406,6 +406,20 @@ function Disable-Copilot-Policies {
 
     
     }
+
+    #additional json path for visual assist 
+    $visualAssistPath = "$env:windir\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\VisualAssist\VisualAssistActions.json"
+    if (Test-Path $visualAssistPath) {
+        Write-Status -msg "$(@('Disabling','Enabling')[$revert]) Generative AI in Visual Assist..."
+
+        takeown /f $visualAssistPath *>$null
+        icacls $visualAssistPath /grant administrators:F /t *>$null
+
+        $jsoncontent = Get-Content $visualAssistPath | ConvertFrom-Json
+        $jsonContent.actions | Add-Member -MemberType NoteProperty -Name usesGenerativeAI -Value @($false, $true)[$revert] -force
+        $newJSONContent = $jsonContent | ConvertTo-Json -Depth 100
+        Set-Content $visualAssistPath -Value $newJSONContent -Force
+    }
     
 }
 
