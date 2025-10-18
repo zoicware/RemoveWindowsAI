@@ -1212,24 +1212,50 @@ function Remove-AI-Files {
         Run-Trusted -command $command -psversion $psversion
 
 
+        Write-Status -msg 'Removing AI From Component Store (WinSxS)...'
         #additional dirs and reg keys
-        <#
+        $aiKeyWords = @(
+            'AIX',
+            'Copilot',
+            'Recall',
+            'CoreAI'
+        )
+        $regLocations = @(
+            'registry::HKCR\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Storage',
+            'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Storage',
+            'registry::HKCR\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages',
+            'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages',
+            'registry::HKCR\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData',
+            'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData',
+            'registry::HKCR\PackagedCom\Package',
+            'HKCU:\Software\Classes\PackagedCom\Package',
+            'HKCU:\Software\RegisteredApplications',
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide\Winners'
+        )
+        $dirs = @(
+            'C:\Windows\WinSxS',
+            'C:\Windows\System32\CatRoot'
+        )
+
+        New-Item "$env:TEMP\PathsToDelete.txt" -ItemType File -Force | Out-Null
+        foreach ($keyword in $aiKeyWords) {
+            foreach ($location in $regLocations) {
+                Get-ChildItem $location -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like "*$keyword*" } | ForEach-Object {
+                    Remove-Item "registry::$($_.Name)" -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+
+            foreach ($dir in $dirs) {
+                Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*$keyword*" -and $_.FullName -notlike '*Photon*' } | ForEach-Object {
+                    #add paths to txt to delete with trusted installer
+                    Add-Content "$env:TEMP\PathsToDelete.txt" -Value $_.FullName | Out-Null
+                } 
+            }
+        }
         
-        HKCR\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Storage\microsoft.copilot_8wekyb3d8bbwe
-        HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Storage\microsoft.copilot_8wekyb3d8bbwe
-
-        HKCR\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\Microsoft.Copilot_1.25096.19.0_x64__8wekyb3d8bbwe
-        HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\Microsoft.Copilot_1.25096.19.0_x64__8wekyb3d8bbwe
-
-        HKCR\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData\Microsoft.Copilot_8wekyb3d8bbwe
-        HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData\Microsoft.Copilot_8wekyb3d8bbwe
-
-
-HKCR\PackagedCom\Package\Microsoft.Copilot_1.25096.19.0_x64__8wekyb3d8bbwe
-HKCU\Software\Classes\PackagedCom\Package\Microsoft.Copilot_1.25096.19.0_x64__8wekyb3d8bbwe
-
-
-        #>
+        $command = "Get-Content `"`$env:TEMP\PathsToDelete.txt`" | ForEach-Object {Remove-Item `$_ -Force -Recurse -EA 0}"
+        Run-Trusted -command $command -psversion $psversion
+        Start-Sleep 1
     }
 
 }
@@ -1918,11 +1944,15 @@ else {
                 if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
                     #cleanup code
                     try {
-                        Remove-Item $packageRemovalPath -Force -ErrorAction SilentlyContinue
+                        Remove-Item "$env:TEMP\aiPackageRemoval.ps1" -Force -ErrorAction SilentlyContinue
                     }
                     catch {}
                     try {
-                        Remove-Item $subScript -Force -ErrorAction SilentlyContinue
+                        Remove-Item "$env:TEMP\RemoveRecallTasks.ps1" -Force -ErrorAction SilentlyContinue
+                    }
+                    catch {}
+                    try {
+                        Remove-Item "$env:TEMP\PathsToDelete.txt" -Force -ErrorAction SilentlyContinue
                     }
                     catch {}
 
@@ -1954,11 +1984,15 @@ else {
 
 #cleanup code
 try {
-    Remove-Item $packageRemovalPath -Force -ErrorAction SilentlyContinue
+    Remove-Item "$env:TEMP\aiPackageRemoval.ps1" -Force -ErrorAction SilentlyContinue
 }
 catch {}
 try {
-    Remove-Item $subScript -Force -ErrorAction SilentlyContinue
+    Remove-Item "$env:TEMP\RemoveRecallTasks.ps1" -Force -ErrorAction SilentlyContinue
+}
+catch {}
+try {
+    Remove-Item "$env:TEMP\PathsToDelete.txt" -Force -ErrorAction SilentlyContinue
 }
 catch {}
 
