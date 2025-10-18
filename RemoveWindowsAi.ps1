@@ -1822,6 +1822,7 @@ else {
                 'ClickToDo.exe'
                 'aixhost.exe'
                 'WorkloadsSessionHost.exe'
+                'WebViewHost.exe'
             )
             foreach ($procName in $aiProcesses) {
                 taskkill /im $procName /f *>$null
