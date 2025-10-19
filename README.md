@@ -21,6 +21,7 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  - Remove Recall Scheduled Task
  - Remove Machine Learning DLL's
  - Remove Hidden AI CBS Packages
+ - Prevent Windows Update from Reinstalling AI Packages
   
 ### Read More In Depth Here
 > **[Documentation](https://github.com/zoicware/RemoveWindowsAI/blob/main/Documentation.md)**
@@ -62,7 +63,7 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 **All Possible Options:**
 ```
 DisableRegKeys          
-RemoveNudgesKeys     
+PreventAIPackageReinstall     
 DisableCopilotPolicies       
 RemoveAppxPackages        
 RemoveRecallFeature 
@@ -110,6 +111,7 @@ Given that Microsoft are continually updating and adding new AI features this sc
 ### Join The Discord
 
 [![Discord](https://discordapp.com/api/guilds/1173717737017716777/widget.png?style=banner1)](https://discord.gg/VsC7XS5vgA)
+
 
 
 
