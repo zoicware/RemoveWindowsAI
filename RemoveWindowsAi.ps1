@@ -2,7 +2,7 @@ param(
     [switch]$EnableLogging,
     [switch]$nonInteractive,
     [ValidateSet('DisableRegKeys',          
-        'RemoveNudgesKeys',     
+        'PreventAIPackageReinstall',     
         'DisableCopilotPolicies',       
         'RemoveAppxPackages',        
         'RemoveRecallFeature', 
@@ -338,52 +338,41 @@ function Disable-Registry-Keys {
 }
 
 
-# =========================
-# prob not worth trying to restore shouldnt break any functionality if the rest is restored 
-# =========================
-function Remove-Copilot-Nudges-Keys {
+
+function Install-NOAIPackage {
     if (!$revert) {
-        #prefire copilot nudges package by deleting the registry keys 
-        Write-Status -msg 'Removing Copilot Nudges Registry Keys...'
-        $keys = @(
-            'registry::HKCR\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
-            'registry::HKCR\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa',
-            'registry::HKCR\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
-            'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
-            'HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications\Backup\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
-            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
-            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.mca',
-            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa'
-        )
-        #get full paths and remove
-        $fullkey = @()
-        foreach ($key in $keys) {
+        #check cpu arch
+        $arm = ((Get-CimInstance -Class Win32_ComputerSystem).SystemType -match 'ARM64') -or ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64')
+        $arch = if ($arm) { 'arm64' } else { 'amd64' }
+        #add cert to registry
+        $certRegPath = 'HKLM:\Software\Microsoft\SystemCertificates\ROOT\Certificates\8A334AA8052DD244A647306A76B8178FA215F344'
+        if (!(Test-Path "$certRegPath")) {
+            New-Item -Path $certRegPath -Force | Out-Null
+        }
+
+        #check if script is being ran locally 
+        if ((Test-Path "$PSScriptRoot\RemoveWindowsAIPackage\amd64") -and (Test-Path "$PSScriptRoot\RemoveWindowsAIPackage\arm64")) {
+            Write-Status -msg 'RemoveWindowsAI Packages Found Locally...'
+
+            Write-Status -msg 'Installing RemoveWindowsAI Package...'
+            Add-WindowsPackage -Online -PackagePath "$PSScriptRoot\RemoveWindowsAIPackage\$arch\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck
+        }
+        else {
+            Write-Status -msg 'Downloading RemoveWindowsAI Package From Github...'
+            $ProgressPreference = 'SilentlyContinue'
             try {
-                $fullKey = Get-Item -Path $key -ErrorAction Stop
-                if ($null -eq $fullkey) { continue }
-                if ($fullkey.Length -gt 1) {
-                    foreach ($multikey in $fullkey) {
-                        $command = "Remove-Item -Path `"registry::$multikey`" -Force -Recurse"
-                        Run-Trusted -command $command -psversion $psversion
-                        Start-Sleep 1
-                        #remove any regular admin that have trusted installer bug
-                        Remove-Item -Path "registry::$multikey" -Force -Recurse -ErrorAction SilentlyContinue
-                    }
-                }
-                else {
-                    $command = "Remove-Item -Path `"registry::$fullKey`" -Force -Recurse"
-                    Run-Trusted -command $command -psversion $psversion
-                    Start-Sleep 1
-                    #remove any regular admin that have trusted installer bug
-                    Remove-Item -Path "registry::$fullKey" -Force -Recurse -ErrorAction SilentlyContinue
-                }
-        
+                Invoke-WebRequest -Uri "https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -OutFile "$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -UseBasicParsing -ErrorAction Stop
             }
             catch {
-                continue
+                Write-Status -msg "Unable to Download Package at: https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -errorOutput $true
+                return
             }
+
+            Write-Status -msg 'Installing RemoveWindowsAI Package...'
+            Add-WindowsPackage -Online -PackagePath "$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck
         }
     }
+
 }
 
     
@@ -1204,6 +1193,47 @@ function Remove-AI-Files {
             Remove-Item $uri -Recurse -Force -ErrorAction SilentlyContinue
         }
 
+        #prefire copilot nudges package by deleting the registry keys 
+        Write-Status -msg 'Removing Copilot Nudges Registry Keys...'
+        $keys = @(
+            'registry::HKCR\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
+            'registry::HKCR\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa',
+            'registry::HKCR\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+            'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\Applications\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+            'HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications\Backup\MicrosoftWindows.Client.Core_cw5n1h2txyewy!Global.CopilotNudges',
+            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.wwa',
+            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.BackgroundTasks\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.AppX*.mca',
+            'HKLM:\SOFTWARE\Classes\Extensions\ContractId\Windows.Launch\PackageId\MicrosoftWindows.Client.Core_*.*.*.*_x64__cw5n1h2txyewy\ActivatableClassId\Global.CopilotNudges.wwa'
+        )
+        #get full paths and remove
+        $fullkey = @()
+        foreach ($key in $keys) {
+            try {
+                $fullKey = Get-Item -Path $key -ErrorAction Stop
+                if ($null -eq $fullkey) { continue }
+                if ($fullkey.Length -gt 1) {
+                    foreach ($multikey in $fullkey) {
+                        $command = "Remove-Item -Path `"registry::$multikey`" -Force -Recurse"
+                        Run-Trusted -command $command -psversion $psversion
+                        Start-Sleep 1
+                        #remove any regular admin that have trusted installer bug
+                        Remove-Item -Path "registry::$multikey" -Force -Recurse -ErrorAction SilentlyContinue
+                    }
+                }
+                else {
+                    $command = "Remove-Item -Path `"registry::$fullKey`" -Force -Recurse"
+                    Run-Trusted -command $command -psversion $psversion
+                    Start-Sleep 1
+                    #remove any regular admin that have trusted installer bug
+                    Remove-Item -Path "registry::$fullKey" -Force -Recurse -ErrorAction SilentlyContinue
+                }
+         
+            }
+            catch {
+                continue
+            }
+        }
+
         #remove ai app checks in updates (not sure if this does anything)
         Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell\Update\Packages\Components' /v 'AIX' /f *>$null
         Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell\Update\Packages\Components' /v 'CopilotNudges' /f *>$null
@@ -1327,7 +1357,7 @@ Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCac
 if ($nonInteractive) {
     if ($AllOptions) {
         Disable-Registry-Keys 
-        Remove-Copilot-Nudges-Keys 
+        Install-NOAIPackage
         Disable-Copilot-Policies 
         Remove-AI-Appx-Packages 
         Remove-Recall-Optional-Feature 
@@ -1341,7 +1371,7 @@ if ($nonInteractive) {
         #loop through options array and run desired tweaks
         switch ($Options) {
             'DisableRegKeys' { Disable-Registry-Keys }
-            'RemoveNudgesKeys' { Remove-Copilot-Nudges-Keys }
+            'Prevent-AI-Package-Reinstall' { Install-NOAIPackage }
             'DisableCopilotPolicies' { Disable-Copilot-Policies }
             'RemoveAppxPackages' { Remove-AI-Appx-Packages }
             'RemoveRecallFeature' { Remove-Recall-Optional-Feature }
@@ -1361,7 +1391,7 @@ else {
 
     $functionDescriptions = @{
         'Disable-Registry-Keys'          = 'Disables Copilot and Recall through registry modifications, including Windows Search integration and Edge Copilot features. Also disables AI image creator in Paint and various AI-related privacy settings.'
-        'Remove-Copilot-Nudges-Keys'     = 'Removes Copilot nudges registry keys that trigger promotional notifications and suggestions to use AI features.'
+        'Prevent-AI-Package-Reinstall'   = 'Installs a custom Windows Update Package to prevent Windows Update and DISM from reinstalling AI packages.'
         'Disable-Copilot-Policies'       = 'Disables Copilot policies in the Windows integrated services region policy JSON file by setting their default state to disabled.'
         'Remove-AI-Appx-Packages'        = 'Removes AI-related AppX packages including Copilot, AIX, CoreAI, and various WindowsWorkload AI components using advanced removal techniques.'
         'Remove-Recall-Optional-Feature' = 'Removes the Recall optional Windows feature completely from the system, including payload removal.'
@@ -1427,7 +1457,7 @@ else {
     $checkboxes = @{}
     $functions = @(
         'Disable-Registry-Keys'          
-        'Remove-Copilot-Nudges-Keys'     
+        'Prevent-AI-Package-Reinstall'
         'Disable-Copilot-Policies'       
         'Remove-AI-Appx-Packages'        
         'Remove-Recall-Optional-Feature' 
@@ -1921,7 +1951,7 @@ else {
 
                     switch ($func) {
                         'Disable-Registry-Keys' { Disable-Registry-Keys }
-                        'Remove-Copilot-Nudges-Keys' { Remove-Copilot-Nudges-Keys }
+                        'Prevent-AI-Package-Reinstall' { Install-NOAIPackage }
                         'Disable-Copilot-Policies' { Disable-Copilot-Policies }
                         'Remove-AI-Appx-Packages' { Remove-AI-Appx-Packages }
                         'Remove-Recall-Optional-Feature' { Remove-Recall-Optional-Feature }
@@ -1953,6 +1983,10 @@ else {
                     catch {}
                     try {
                         Remove-Item "$env:TEMP\PathsToDelete.txt" -Force -ErrorAction SilentlyContinue
+                    }
+                    catch {}  
+                    try {
+                        Remove-Item "$env:TEMP\ZoicwareRemoveWindowsAI-*1.0.0.0.cab" -Force -ErrorAction SilentlyContinue
                     }
                     catch {}
 
@@ -1993,6 +2027,10 @@ try {
 catch {}
 try {
     Remove-Item "$env:TEMP\PathsToDelete.txt" -Force -ErrorAction SilentlyContinue
+}
+catch {}
+try {
+    Remove-Item "$env:TEMP\ZoicwareRemoveWindowsAI-*1.0.0.0.cab" -Force -ErrorAction SilentlyContinue
 }
 catch {}
 
