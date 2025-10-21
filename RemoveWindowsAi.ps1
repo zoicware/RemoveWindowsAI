@@ -386,7 +386,7 @@ function Disable-Copilot-Policies {
 
         #takeownership
         takeown /f $JSONPath *>$null
-        icacls $JSONPath /grant administrators:F /t *>$null
+        icacls $JSONPath /grant *S-1-5-32-544:F /t *>$null
 
         #edit the content
         $jsonContent = Get-Content $JSONPath | ConvertFrom-Json
@@ -412,7 +412,7 @@ function Disable-Copilot-Policies {
         Write-Status -msg "$(@('Disabling','Enabling')[$revert]) Generative AI in Visual Assist..."
 
         takeown /f $visualAssistPath *>$null
-        icacls $visualAssistPath /grant administrators:F /t *>$null
+        icacls $visualAssistPath /grant *S-1-5-32-544:F /t *>$null
 
         $jsoncontent = Get-Content $visualAssistPath | ConvertFrom-Json
         $jsonContent.actions | Add-Member -MemberType NoteProperty -Name usesGenerativeAI -Value @($false, $true)[$revert] -force
@@ -1088,7 +1088,7 @@ function Remove-AI-Files {
         )
         foreach ($path in $paths) {
             takeown /f $path *>$null
-            icacls $path /grant administrators:F /t *>$null
+            icacls $path /grant *S-1-5-32-544:F /t *>$null
             try {
                 Remove-Item -Path $path -Force -ErrorAction Stop
             }
@@ -1126,7 +1126,7 @@ function Remove-AI-Files {
         $installers = Get-ChildItem -Path $inboxapps -Filter '*Copilot*'
         foreach ($installer in $installers) {
             takeown /f $installer.FullName *>$null
-            icacls $installer.FullName /grant administrators:F /t *>$null
+            icacls $installer.FullName /grant *S-1-5-32-544:F /t *>$null
             try {
                 Remove-Item -Path $installer.FullName -Force -ErrorAction Stop
             }
