@@ -24,8 +24,9 @@
 - I have collected all registry keys regarding AI disablement, including Notepad, Paint, and Edge.
   - Some of these are Group Policies so if you see any AI feature settings greyed out with the message `Some Settings are Managed by Your Organization` this is why
  
-#### Copilot Nudges Removal
-- These registry entries are related to what Microsoft calls `Nudges`, personalized notifications with tips regarding Copilot
+#### Prevent Reinstall of AI Packages
+- This option will install a custom Windows Update package to make Windows think that there is already a newer version of the AI package installed.
+- Method from Atlas and Revi OS as they make use of these
 
 #### Disable Copilot In IntegratedServicesRegionPolicySet
 - This json file contains rules for deciding weither or not certain apps and settings are enabled based on your region
@@ -55,6 +56,7 @@
  
 #### Removing AI Files and Folders
 - The script will forcibly remove the Appx package install locations, remove Machine Learning Dlls, and hidden Copilot installers.
+- Additionally, various other reg keys and files are removed to ensure a proper cleanup of AI features
 
 #### Disable Rewrite In Notepad
 - There is two methods of doing this, the first way is loading the settings.dat file from notepads appdata directory into registry and setting the `RewriteEnabled` key to false
