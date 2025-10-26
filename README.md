@@ -22,9 +22,13 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  - Remove Machine Learning DLL's
  - Remove Hidden AI CBS Packages
  - Prevent Windows Update from Reinstalling AI Packages
+
+#### Manual AI Disablement
+- Unfourtently, not all features and settings can be disabled via a script. This guide will show additional AI features to disable.
+  > **[Disable Other AI Features](https://github.com/zoicware/RemoveWindowsAI/blob/main/OtherAIFeatures.md)**
   
-### Read More In Depth Here
-> **[Documentation](https://github.com/zoicware/RemoveWindowsAI/blob/main/Documentation.md)**
+### Read the Script Docs Here
+  > **[Documentation](https://github.com/zoicware/RemoveWindowsAI/blob/main/Documentation.md)**
 
 ---
 
