@@ -25,7 +25,7 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 
 #### Manual AI Disablement
 - Unfourtently, not all features and settings can be disabled via a script. This guide will show additional AI features to disable.
-  > **[Disable Other AI Features](https://github.com/zoicware/RemoveWindowsAI/blob/main/OtherAIFeatures.md)**
+> **[Disable Other AI Features](https://github.com/zoicware/RemoveWindowsAI/blob/main/OtherAIFeatures.md)**
   
 ### Read the Script Docs Here
   > **[Documentation](https://github.com/zoicware/RemoveWindowsAI/blob/main/Documentation.md)**
