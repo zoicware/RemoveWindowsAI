@@ -29,6 +29,12 @@ If you use OneDrive (not recommended) there is an AI feature to scan images for 
 
 ### Windows Studio Effects
 
+>[!NOTE]
+> Recently, I added a method to disable AI voice effects for the mic
+>
+> Check to see if this is working on your system
+>
+
 If you have a Copilot+ pc (a cpu with a npu) then you will have access to Windows Studio Effects.
 
 These effects are AI powered features for the camera and mic.
@@ -39,3 +45,4 @@ These effects are AI powered features for the camera and mic.
 
 
 Here is a good guide from elevenfourms: https://www.elevenforum.com/t/enable-or-disable-windows-studio-effects-for-camera-in-windows-11.39828/
+
