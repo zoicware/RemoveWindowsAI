@@ -272,7 +272,7 @@ function Disable-Registry-Keys {
             if (!(Test-Path $backupPath)) {
                 New-Item $backupPath -Force -ItemType Directory | Out-Null
             }
-            Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFile" >$null
+            Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFile" | Out-Null
         }
         Write-Status -msg 'Removing up WSAIFabricSvc...'
         #delete the service
