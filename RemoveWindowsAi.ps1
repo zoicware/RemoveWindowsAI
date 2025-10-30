@@ -272,7 +272,10 @@ function Disable-Registry-Keys {
             if (!(Test-Path $backupPath)) {
                 New-Item $backupPath -Force -ItemType Directory | Out-Null
             }
-            Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFile" | Out-Null
+            #this will hang if the service has already been exported
+            if (!(Test-Path "$backupPath\$backupFile")) {
+                Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFile" | Out-Null
+            }
         }
         Write-Status -msg 'Removing up WSAIFabricSvc...'
         #delete the service
@@ -291,8 +294,8 @@ function Disable-Registry-Keys {
     else {
         if ($backup) {
             #backup .copilot file extension
-            Reg.exe export 'HKEY_CLASSES_ROOT\.copilot' "$backupPath\HKCR_Copilot.reg" >$null
-            Reg.exe export 'HKEY_CURRENT_USER\Software\Classes\.copilot' "$backupPath\HKCU_Copilot.reg" >$null
+            Reg.exe export 'HKEY_CLASSES_ROOT\.copilot' "$backupPath\HKCR_Copilot.reg" *>$null
+            Reg.exe export 'HKEY_CURRENT_USER\Software\Classes\.copilot' "$backupPath\HKCU_Copilot.reg" *>$null
         }
         Write-Status -msg 'Removing .copilot File Extension...' 
         Reg.exe delete 'HKCU\Software\Classes\.copilot' /f *>$null
@@ -309,8 +312,8 @@ function Disable-Registry-Keys {
         if (!(Test-Path $backupPath)) {
             New-Item $backupPath -Force -ItemType Directory | Out-Null
         }
-        Copy-Item $voiceExe -Destination $backupPath -Force | Out-Null
-        Copy-Item "$startMenu\VoiceAccess.lnk" -Destination $backupPath -Force | Out-Null
+        Copy-Item $voiceExe -Destination $backupPath -Force -ErrorAction SilentlyContinue | Out-Null
+        Copy-Item "$startMenu\VoiceAccess.lnk" -Destination $backupPath -Force -ErrorAction SilentlyContinue | Out-Null
     }
     
     if ($revert) {
