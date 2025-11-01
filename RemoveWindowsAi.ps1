@@ -247,6 +247,8 @@ function Disable-Registry-Keys {
     #disable ask copilot (taskbar search)
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' /v 'TaskbarCompanion' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKCU\Software\Microsoft\Windows\Shell\BrandedKey' /v 'BrandedKeyChoiceType' /t REG_SZ /d @('NoneSelected', 'TaskbarCompanion')[$revert] / f *>$null
+    #disable recall customized homepage 
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\SettingSync\WindowsSettingHandlers' /v 'A9HomeContentEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #disable ai image creator in paint
     Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) Image Creator In Paint..."
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableImageCreator' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
