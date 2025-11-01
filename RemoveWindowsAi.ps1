@@ -925,7 +925,7 @@ function Remove-AI-CBS-Packages {
                 Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
                 Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
                 try {
-                    Remove-WindowsPackage -Online -PackageName $_.PSChildName -ErrorAction Stop *>$null
+                    Remove-WindowsPackage -Online -PackageName $_.PSChildName -NoRestart -ErrorAction Stop *>$null
                     Get-ChildItem "$env:windir\servicing\Packages" -Filter "*$($_.PSChildName)*" | Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
                 }
                 catch {
