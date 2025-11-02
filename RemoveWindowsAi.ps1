@@ -370,6 +370,12 @@ function Disable-Registry-Keys {
             }
         }
     }
+
+    #disable gaming copilot 
+    #found from: https://github.com/meetrevision/playbook/issues/197
+    #not sure this really does anything in my testing gaming copilot still appears 
+    $command = "reg add 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /v 'ActivationType' /t REG_DWORD /d 0 /f"
+    Run-Trusted -command $command -psversion $psversion
     
     #force policy changes
     Write-Status -msg 'Applying Registry Changes...'
