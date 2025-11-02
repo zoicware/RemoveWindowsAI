@@ -315,6 +315,7 @@ function Disable-Registry-Keys {
 
     #disabling and removing voice access, recently added ai powered
     Reg.exe add 'HKCU\Software\Microsoft\VoiceAccess' /v 'RunningState' /t REG_DWORD /d @('0', '1')[$revert] /f
+    Reg.exe add 'HKCU\Software\Microsoft\VoiceAccess' /v 'TextCorrection' /t REG_DWORD /d @('1', '2')[$revert] /f
     Reg.exe add 'HKCU\Software\Microsoft\Windows NT\CurrentVersion\AccessibilityTemp' /v @('0', '1')[$revert] /t REG_DWORD /d '0' /f
     $startMenu = "$env:appdata\Microsoft\Windows\Start Menu\Programs\Accessibility"
     $voiceExe = "$env:windir\System32\voiceaccess.exe"
@@ -685,31 +686,36 @@ function Remove-AI-Appx-Packages {
             'MicrosoftWindows.Client.CoreAI'
             'Microsoft.Edge.GameAssist'
             #ai component packages installed on copilot+ pcs
-            'WindowsWorkload.Data.Analysis.Stx.1'
-            'WindowsWorkload.Manager.1'
-            'WindowsWorkload.PSOnnxRuntime.Stx.2.7'
-            'WindowsWorkload.PSTokenizer.Stx.2.7'
-            'WindowsWorkload.QueryBlockList.1'
-            'WindowsWorkload.QueryProcessor.Data.1'
-            'WindowsWorkload.QueryProcessor.Stx.1'
-            'WindowsWorkload.SemanticText.Data.1'
-            'WindowsWorkload.SemanticText.Stx.1'
-            'WindowsWorkload.Data.ContentExtraction.Stx.1'
-            'WindowsWorkload.ScrRegDetection.Data.1'
-            'WindowsWorkload.ScrRegDetection.Stx.1'
-            'WindowsWorkload.TextRecognition.Stx.1'
-            'WindowsWorkload.Data.ImageSearch.Stx.1'
-            'WindowsWorkload.ImageContentModeration.1'
-            'WindowsWorkload.ImageContentModeration.Data.1'
-            'WindowsWorkload.ImageSearch.Data.3'
-            'WindowsWorkload.ImageSearch.Stx.2'
-            'WindowsWorkload.ImageSearch.Stx.3'
-            'WindowsWorkload.ImageTextSearch.Data.3'
-            'WindowsWorkload.PSOnnxRuntime.Stx.3.2'
-            'WindowsWorkload.PSTokenizerShared.Data.3.2'
-            'WindowsWorkload.PSTokenizerShared.Stx.3.2'
-            'WindowsWorkload.ImageTextSearch.Stx.2'
-            'WindowsWorkload.ImageTextSearch.Stx.3'
+            'MicrosoftWindows.*.Voiess'
+            'MicrosoftWindows.*.Speion'
+            'MicrosoftWindows.*.Livtop'
+            'MicrosoftWindows.*.InpApp'
+            'MicrosoftWindows.*.Filons'
+            'WindowsWorkload.Data.Analysis.Stx.*'
+            'WindowsWorkload.Manager.*'
+            'WindowsWorkload.PSOnnxRuntime.Stx.*'
+            'WindowsWorkload.PSTokenizer.Stx.*'
+            'WindowsWorkload.QueryBlockList.*'
+            'WindowsWorkload.QueryProcessor.Data.*'
+            'WindowsWorkload.QueryProcessor.Stx.*'
+            'WindowsWorkload.SemanticText.Data.*'
+            'WindowsWorkload.SemanticText.Stx.*'
+            'WindowsWorkload.Data.ContentExtraction.Stx.*'
+            'WindowsWorkload.ScrRegDetection.Data.*'
+            'WindowsWorkload.ScrRegDetection.Stx.*'
+            'WindowsWorkload.TextRecognition.Stx.*'
+            'WindowsWorkload.Data.ImageSearch.Stx.*'
+            'WindowsWorkload.ImageContentModeration.*'
+            'WindowsWorkload.ImageContentModeration.Data.*'
+            'WindowsWorkload.ImageSearch.Data.*'
+            'WindowsWorkload.ImageSearch.Stx.*'
+            'WindowsWorkload.ImageSearch.Stx.*'
+            'WindowsWorkload.ImageTextSearch.Data.*'
+            'WindowsWorkload.PSOnnxRuntime.Stx.*'
+            'WindowsWorkload.PSTokenizerShared.Data.*'
+            'WindowsWorkload.PSTokenizerShared.Stx.*'
+            'WindowsWorkload.ImageTextSearch.Stx.*'
+            'WindowsWorkload.ImageTextSearch.Stx.*'
         )
 
         if ($backup) {
@@ -738,31 +744,36 @@ $aipackages = @(
     'Microsoft.MicrosoftOfficeHub'
     'MicrosoftWindows.Client.CoreAI'
     'Microsoft.Edge.GameAssist'
-    'WindowsWorkload.Data.Analysis.Stx.1'
-    'WindowsWorkload.Manager.1'
-    'WindowsWorkload.PSOnnxRuntime.Stx.2.7'
-    'WindowsWorkload.PSTokenizer.Stx.2.7'
-    'WindowsWorkload.QueryBlockList.1'
-    'WindowsWorkload.QueryProcessor.Data.1'
-    'WindowsWorkload.QueryProcessor.Stx.1'
-    'WindowsWorkload.SemanticText.Data.1'
-    'WindowsWorkload.SemanticText.Stx.1'
-    'WindowsWorkload.Data.ContentExtraction.Stx.1'
-    'WindowsWorkload.ScrRegDetection.Data.1'
-    'WindowsWorkload.ScrRegDetection.Stx.1'
-    'WindowsWorkload.TextRecognition.Stx.1'
-    'WindowsWorkload.Data.ImageSearch.Stx.1'
-    'WindowsWorkload.ImageContentModeration.1'
-    'WindowsWorkload.ImageContentModeration.Data.1'
-    'WindowsWorkload.ImageSearch.Data.3'
-    'WindowsWorkload.ImageSearch.Stx.2'
-    'WindowsWorkload.ImageSearch.Stx.3'
-    'WindowsWorkload.ImageTextSearch.Data.3'
-    'WindowsWorkload.PSOnnxRuntime.Stx.3.2'
-    'WindowsWorkload.PSTokenizerShared.Data.3.2'
-    'WindowsWorkload.PSTokenizerShared.Stx.3.2'
-    'WindowsWorkload.ImageTextSearch.Stx.2'
-    'WindowsWorkload.ImageTextSearch.Stx.3'
+    'MicrosoftWindows.*.Voiess'
+    'MicrosoftWindows.*.Speion'
+    'MicrosoftWindows.*.Livtop'
+    'MicrosoftWindows.*.InpApp'
+    'MicrosoftWindows.*.Filons'
+    'WindowsWorkload.Data.Analysis.Stx.*'
+    'WindowsWorkload.Manager.*'
+    'WindowsWorkload.PSOnnxRuntime.Stx.*'
+    'WindowsWorkload.PSTokenizer.Stx.*'
+    'WindowsWorkload.QueryBlockList.*'
+    'WindowsWorkload.QueryProcessor.Data.*'
+    'WindowsWorkload.QueryProcessor.Stx.*'
+    'WindowsWorkload.SemanticText.Data.*'
+    'WindowsWorkload.SemanticText.Stx.*'
+    'WindowsWorkload.Data.ContentExtraction.Stx.*'
+    'WindowsWorkload.ScrRegDetection.Data.*'
+    'WindowsWorkload.ScrRegDetection.Stx.*'
+    'WindowsWorkload.TextRecognition.Stx.*'
+    'WindowsWorkload.Data.ImageSearch.Stx.*'
+    'WindowsWorkload.ImageContentModeration.*'
+    'WindowsWorkload.ImageContentModeration.Data.*'
+    'WindowsWorkload.ImageSearch.Data.*'
+    'WindowsWorkload.ImageSearch.Stx.*'
+    'WindowsWorkload.ImageSearch.Stx.*'
+    'WindowsWorkload.ImageTextSearch.Data.*'
+    'WindowsWorkload.PSOnnxRuntime.Stx.*'
+    'WindowsWorkload.PSTokenizerShared.Data.*'
+    'WindowsWorkload.PSTokenizerShared.Stx.*'
+    'WindowsWorkload.ImageTextSearch.Stx.*'
+    'WindowsWorkload.ImageTextSearch.Stx.*'
 )
 
 $provisioned = get-appxprovisionedpackage -online 
@@ -990,31 +1001,12 @@ function Remove-AI-Files {
             'MicrosoftWindows.Client.CoreAI'
             'Microsoft.Edge.GameAssist'
             #ai component packages installed on copilot+ pcs
-            'WindowsWorkload.Data.Analysis.Stx.1'
-            'WindowsWorkload.Manager.1'
-            'WindowsWorkload.PSOnnxRuntime.Stx.2.7'
-            'WindowsWorkload.PSTokenizer.Stx.2.7'
-            'WindowsWorkload.QueryBlockList.1'
-            'WindowsWorkload.QueryProcessor.Data.1'
-            'WindowsWorkload.QueryProcessor.Stx.1'
-            'WindowsWorkload.SemanticText.Data.1'
-            'WindowsWorkload.SemanticText.Stx.1'
-            'WindowsWorkload.Data.ContentExtraction.Stx.1'
-            'WindowsWorkload.ScrRegDetection.Data.1'
-            'WindowsWorkload.ScrRegDetection.Stx.1'
-            'WindowsWorkload.TextRecognition.Stx.1'
-            'WindowsWorkload.Data.ImageSearch.Stx.1'
-            'WindowsWorkload.ImageContentModeration.1'
-            'WindowsWorkload.ImageContentModeration.Data.1'
-            'WindowsWorkload.ImageSearch.Data.3'
-            'WindowsWorkload.ImageSearch.Stx.2'
-            'WindowsWorkload.ImageSearch.Stx.3'
-            'WindowsWorkload.ImageTextSearch.Data.3'
-            'WindowsWorkload.PSOnnxRuntime.Stx.3.2'
-            'WindowsWorkload.PSTokenizerShared.Data.3.2'
-            'WindowsWorkload.PSTokenizerShared.Stx.3.2'
-            'WindowsWorkload.ImageTextSearch.Stx.2'
-            'WindowsWorkload.ImageTextSearch.Stx.3'
+            'WindowsWorkload'
+            'Voiess'
+            'Speion'
+            'Livtop'
+            'InpApp'
+            'Filons'
         )
 
         Write-Status -msg 'Removing Appx Package Files...'
@@ -1036,12 +1028,18 @@ function Remove-AI-Files {
         if (!(Test-Path $appsPath5)) {
             $appsPath5 = "$env:windir\System32\CatRoot"
         }
+
+        $appsPath6 = "$env:SystemRoot\SystemApps\SxS"
+        if (!(Test-Path $appsPath6)) {
+            $appsPath6 = "$env:windir\SystemApps\SxS"
+        }
         $pathsSystemApps = (Get-ChildItem -Path $appsPath -Directory -Force).FullName 
         $pathsWindowsApps = (Get-ChildItem -Path $appsPath2 -Directory -Force).FullName 
         $pathsAppRepo = (Get-ChildItem -Path $appsPath3 -Directory -Force -Recurse).FullName 
         $pathsServicing = (Get-ChildItem -Path $appsPath4 -Directory -Force -Recurse).FullName
         $pathsCatRoot = (Get-ChildItem -Path $appsPath5 -Directory -Force -Recurse).FullName 
-    
+        $pathsSXS = (Get-ChildItem -Path $appsPath6 -Directory -Force).FullName 
+
         $packagesPath = @()
         #get full path
         foreach ($package in $aipackages) {
@@ -1059,6 +1057,12 @@ function Remove-AI-Files {
             }
     
             foreach ($path in $pathsAppRepo) {
+                if ($path -like "*$package*") {
+                    $packagesPath += $path
+                }
+            }
+
+            foreach ($path in $pathsSXS) {
                 if ($path -like "*$package*") {
                     $packagesPath += $path
                 }
