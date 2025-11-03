@@ -102,6 +102,9 @@ RemoveRecallTasks
 
 Given that Microsoft are continually updating and adding new AI features this script will attempt to stay updated for the newest stable build.
 
+You can view the newest updates to the script here:
+https://github.com/zoicware/RemoveWindowsAI/commits/main/
+
  > [!NOTE]  
 > Any feature added to an insider build will not be added to this script till it's added to the latest stable release
 
@@ -115,6 +118,7 @@ Given that Microsoft are continually updating and adding new AI features this sc
 ### Join The Discord
 
 [![Discord](https://discordapp.com/api/guilds/1173717737017716777/widget.png?style=banner1)](https://discord.gg/VsC7XS5vgA)
+
 
 
 
