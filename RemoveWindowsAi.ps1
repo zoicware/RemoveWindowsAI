@@ -513,9 +513,22 @@ function Disable-Copilot-Policies {
             foreach ($policies in $copilotPolicies) {
                 $policies.defaultState = @('disabled', 'enabled')[$revert]
             }
+            $recallPolicies = $jsonContent.policies | Where-Object { $_.'$comment' -like '*A9*' -or $_.'$comment' -like '*Manage Recall*' -or $_.'$comment' -like '*Settings Agent*' }
+            foreach ($recallPolicy in $recallPolicies) {
+                if ($recallPolicy.'$comment' -like '*A9*') {
+                    $recallPolicy.defaultState = @('enabled', 'disabled')[$revert]
+                }
+                elseif ($recallPolicy.'$comment' -like '*Manage Recall*') {
+                    $recallPolicy.defaultState = @('disabled', 'enabled')[$revert]
+                }
+                elseif ($recallPolicy.'$comment' -like '*Settings Agent*') {
+                    $recallPolicy.defaultState = @('enabled', 'disabled')[$revert]
+                }
+            }
             $newJSONContent = $jsonContent | ConvertTo-Json -Depth 100
             Set-Content $JSONPath -Value $newJSONContent -Force
-            Write-Status -msg "$($copilotPolicies.count) CoPilot Policies $(@('Disabled','Enabled')[$revert])"
+            $total = ($copilotPolicies.count) + ($recallPolicies.count)
+            Write-Status -msg "$total CoPilot Policies $(@('Disabled','Enabled')[$revert])"
         }
         catch {
             Write-Status -msg 'CoPilot Not Found in IntegratedServicesRegionPolicySet' -errorOutput $true
