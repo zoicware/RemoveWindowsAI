@@ -1406,7 +1406,7 @@ function Remove-AI-Files {
         foreach ($keyword in $aiKeyWords) {
             foreach ($location in $regLocations) {
                 Get-ChildItem $location -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like "*$keyword*" } | ForEach-Object {
-                    Remove-Item "registry::$($_.Name)" -Recurse -Force -ErrorAction SilentlyContinue
+                    Remove-Item $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
                 }
             }
 
