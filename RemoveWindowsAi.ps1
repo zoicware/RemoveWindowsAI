@@ -2174,7 +2174,9 @@ if ($ogExecutionPolicy) {
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
 }
 
+if (!$nonInteractive) {
+    Write-Host 'Done! Press Any Key to Exit...' -ForegroundColor Green
+    $Host.UI.RawUI.ReadKey() *>$null
+}
 
-Write-Host 'Done! Press Any Key to Exit...' -ForegroundColor Green
-$Host.UI.RawUI.ReadKey() *>$null
 exit
