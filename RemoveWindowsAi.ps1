@@ -776,6 +776,9 @@ function Remove-AI-Appx-Packages {
             'Microsoft.MicrosoftOfficeHub'
             'MicrosoftWindows.Client.CoreAI'
             'Microsoft.Edge.GameAssist'
+            'Microsoft.Office.ActionsServer'
+            'aimgr'
+            'Microsoft.WritingAssistant'
             #ai component packages installed on copilot+ pcs
             'MicrosoftWindows.*.Voiess'
             'MicrosoftWindows.*.Speion'
@@ -835,6 +838,9 @@ $aipackages = @(
     'Microsoft.MicrosoftOfficeHub'
     'MicrosoftWindows.Client.CoreAI'
     'Microsoft.Edge.GameAssist'
+    'Microsoft.Office.ActionsServer'
+    'aimgr'
+    'Microsoft.WritingAssistant'
     'MicrosoftWindows.*.Voiess'
     'MicrosoftWindows.*.Speion'
     'MicrosoftWindows.*.Livtop'
@@ -1065,6 +1071,11 @@ function Remove-AI-Files {
                 Write-Status -msg 'Restoring Office AI Files...'
                 Move-Item "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI\x64\AI" -Destination "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16" -Force 
                 Move-Item "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI\x86\AI" -Destination "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16" -Force 
+                Move-Item "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI\RootAI\AI" -Destination "$env:ProgramFiles\Microsoft Office\root\Office16" -Force 
+                Move-Item "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI\ActionsServer\ActionsServer" -Destination "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16" -Force 
+                Get-ChildItem "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI" -Filter '*.msix' | ForEach-Object {
+                    Move-Item $_.FullName -Destination "$env:ProgramFiles\Microsoft Office\root\Integration\Addons" -Force
+                }
             }
 
             Write-Status -msg 'Restoring AI URIs...'
@@ -1091,6 +1102,9 @@ function Remove-AI-Files {
             'Microsoft.MicrosoftOfficeHub'
             'MicrosoftWindows.Client.CoreAI'
             'Microsoft.Edge.GameAssist'
+            'Microsoft.Office.ActionsServer'
+            'aimgr'
+            'Microsoft.WritingAssistant'
             #ai component packages installed on copilot+ pcs
             'WindowsWorkload'
             'Voiess'
@@ -1277,28 +1291,53 @@ function Remove-AI-Files {
         #remove ai from outlook/office
         $aiPaths = @(
             "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16\AI",
-            "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX86\Microsoft Shared\Office16\AI"
+            "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX86\Microsoft Shared\Office16\AI",
+            "$env:ProgramFiles\Microsoft Office\root\Office16\AI",
+            "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16\ActionsServer",
+            "$env:ProgramFiles\Microsoft Office\root\Integration\Addons\aimgr.msix",
+            "$env:ProgramFiles\Microsoft Office\root\Integration\Addons\WritingAssistant.msix",
+            "$env:ProgramFiles\Microsoft Office\root\Integration\Addons\ActionsServer.msix"
         )
     
         foreach ($path in $aiPaths) {
-            if (Test-Path $path -PathType Container -ErrorAction SilentlyContinue) {
+            if (Test-Path $path -ErrorAction SilentlyContinue) {
                 if ($backup) {
                     Write-Status -msg 'Backing Up Office AI Files...'
                     $backupDir = "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI"
                     if (!(Test-Path $backupDir)) {
                         New-Item $backupDir -Force -ItemType Directory | Out-Null
                     }
-                    if ($path -like '*ProgramFilesCommonX64*') {
+
+                    if ($path -eq "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16\AI") {
                         $backupDir = "$backupDir\x64"
                         New-Item $backupDir -Force -ItemType Directory | Out-Null
                     }
-                    else {
+                    elseif ($path -eq "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX86\Microsoft Shared\Office16\AI") {
                         $backupDir = "$backupDir\x86"
                         New-Item $backupDir -Force -ItemType Directory | Out-Null
                     }
+                    elseif ($path -eq "$env:ProgramFiles\Microsoft Office\root\Office16\AI") {
+                        $backupDir = "$backupDir\RootAI"
+                        New-Item $backupDir -Force -ItemType Directory | Out-Null
+                    }
+                    elseif ($path -eq "$env:ProgramFiles\Microsoft Office\root\vfs\ProgramFilesCommonX64\Microsoft Shared\Office16\ActionsServer") {
+                        $backupDir = "$backupDir\ActionsServer"
+                        New-Item $backupDir -Force -ItemType Directory | Out-Null
+                    }
+                    else {
+                        $backupDir = "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles\OfficeAI"
+                    }
                     Copy-Item -Path $path -Destination $backupDir -Force -Recurse -ErrorAction SilentlyContinue
                 }
-                Remove-Item $path -Recurse -Force
+                try {
+                    Remove-Item $path -Recurse -Force -ErrorAction Stop
+                }
+                catch {
+                    $command = "Remove-Item $path -Recurse -Force"
+                    Run-Trusted -command $command -psversion $psversion
+                    Start-Sleep 1
+                }
+                
             }
         }
 
@@ -2036,6 +2075,7 @@ else {
                 'aixhost.exe'
                 'WorkloadsSessionHost.exe'
                 'WebViewHost.exe'
+                'aimgr.exe'
             )
             foreach ($procName in $aiProcesses) {
                 taskkill /im $procName /f *>$null
