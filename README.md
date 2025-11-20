@@ -10,19 +10,35 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 
 
 ### Script Features
- - **Registry** 
-   - Disable Copilot, Recall, Input Insights, CoPilot in Edge, Image Creator in Paint, Remove AI Fabric Service
- - Remove all AI appxpackages and force remove the files
- - Disable Copilot policies in IntegratedServicesRegionPolicySet.json
- - Remove Recall Optional Feature
- - Remove all hidden Copilot installers
- - Disable Rewrite for Notepad
- - Delete any screenshots and data stored by Recall
- - Remove Recall Scheduled Task
- - Remove Machine Learning DLL's
- - Remove Hidden AI CBS Packages
- - Prevent Windows Update from Reinstalling AI Packages
-
+ - **Disable Registry Keys** 
+   - Disable Copilot
+   - Disable Recall
+   - Disable Input Insights and typing data harvesting 
+   - Copilot in Edge
+   - Image Creator in Paint
+   - Remove AI Fabric Service
+   - Disable AI Actions
+   - Disable AI in Paint
+   - Disable Voice Access
+   - Disable AI Voice Effects
+   - Disable AI in Settings Search
+ - **Prevent Reinstall of AI Packages**
+   - Installs custom Windows Update package to prevent reinstall of AI packages in the CBS (Component-Based Servicing) store 
+ - **Disable Copilot policies** 
+   - Disables policies related to Copilot and Recall in IntegratedServicesRegionPolicySet.json
+ - **Remove AI Appx Packages**
+   - Removes all AI appx packages including `Nonremovable` packages and WindowsWorkload 
+ - **Remove Recall Optional Feature**
+ - **Remove AI Packages in CBS**
+   - This will remove hidden and locked AI packages in the CBS (Component-Based Servicing) store 
+ - **Remove AI Files**
+   - This will do a full system cleanup removing all remaining AI installers, registry keys, and package files 
+ - **Hide AI Components**
+   - This will hide the settings page `AI Components` 
+ - **Disable Rewrite AI Feature in Notepad**
+ - **Remove Recall Tasks**
+   - Forceably removes all instances of Recall's scheduled tasks  
+ 
 #### Manual AI Disablement
 - Unfourtently, not all features and settings can be disabled via a script. This guide will show additional AI features to disable.
 > **[Disable Other AI Features](https://github.com/zoicware/RemoveWindowsAI/blob/main/OtherAIFeatures.md)**
