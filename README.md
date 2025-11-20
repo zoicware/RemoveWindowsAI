@@ -131,9 +131,18 @@ https://github.com/zoicware/RemoveWindowsAI/commits/main/
 > If you find an AI feature or registry key that is not currently removed or disabled by the script submit an issue with as much information as possible and I will add it to the script.
 
 
+### Donation 
+
+If you would like to support my work consider donating :)
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/zoicware)
+
+
+
 ### Join The Discord
 
 [![Discord](https://discordapp.com/api/guilds/1173717737017716777/widget.png?style=banner1)](https://discord.gg/VsC7XS5vgA)
+
 
 
 
