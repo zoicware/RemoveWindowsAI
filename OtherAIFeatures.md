@@ -9,6 +9,11 @@
 
 ### Gaming Copilot
 
+>[!NOTE]
+> 
+> Ive added a registry key to disable gaming copilot from working properly, that being said these settings will not be accessible, simply unpin gaming copilot and it wont popup anymore
+>
+
 If you use Xbox Game Bar check and disable all the gaming copilot privacy settings
 
 - Disable all the following settings found here:
@@ -45,4 +50,5 @@ These effects are AI powered features for the camera and mic.
 
 
 Here is a good guide from elevenfourms: https://www.elevenforum.com/t/enable-or-disable-windows-studio-effects-for-camera-in-windows-11.39828/
+
 
