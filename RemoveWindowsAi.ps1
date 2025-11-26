@@ -27,7 +27,8 @@ if ($nonInteractive) {
 
 
 If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
-    $arglist = "-NoProfile -ExecutionPolicy Bypass -File `"{0}`"" -f $PSCommandPath
+    #leave out the trailing " to add supplied params first 
+    $arglist = "-NoProfile -ExecutionPolicy Bypass -C `"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1')))"
     #pass the correct params if supplied
     if ($nonInteractive) {
         $arglist = $arglist + ' -nonInteractive'
@@ -63,6 +64,8 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
         $arglist = $arglist + ' -EnableLogging'
     }
 
+    #add the trailing quote 
+    $arglist = $arglist + '"'
     Start-Process PowerShell.exe -ArgumentList $arglist -Verb RunAs
     Exit	
 }
