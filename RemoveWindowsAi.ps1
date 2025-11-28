@@ -1477,16 +1477,31 @@ function Remove-AI-Files {
 function Hide-AI-Components {
     #hide ai components in immersive settings
     Write-Status -msg "$(@('Hiding','Unhiding')[$revert]) Ai Components in Settings..."
+
+    $existingSettings = try { Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' -Name 'SettingsPageVisibility' -ErrorAction SilentlyContinue }catch {}
+    #early return if the user has already customized this with showonly rather than hide, in this event ill assume the user has knowledge of this key and aicomponents is likely not shown anyway
+    if ($existingSettings -like '*showonly*') {
+        Write-Status 'SettingsPageVisibility contains "showonly"...Skipping!' -errorOutput
+        return 
+    }
+    
     if ($revert) {
-        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /f >$null
+        #if the key is not just hide ai components then just remove it and retain the rest
+        if ($existingSettings -ne 'hide:aicomponents;') {
+            #in the event that this is just aicomponents but multiple times newkey will just be hide: which is valid
+            $newKey = $existingSettings -replace 'aicomponents;', ''
+            Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d $newKey /f >$null
+        }
+        else {
+            Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /f >$null
+        }
     }
     else {
-        $existingSettings = try { Get-ItemPropertyValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' -Name 'SettingsPageVisibility' -ErrorAction SilentlyContinue }catch {}
-        if ($existingSettings) {
+        if ($existingSettings -and $existingSettings -notlike '*aicomponents;*') {
             $newval = $existingSettings + 'aicomponents;'
             Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d $newval /f >$null
         }
-        else {
+        elseif ($existingSettings -eq $null) {
             Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d 'hide:aicomponents;' /f >$null
         }
        
