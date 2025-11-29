@@ -196,6 +196,35 @@ function Disable-Registry-Keys {
 
     #disable ai registry keys
     Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) Copilot and Recall..."
+    <#
+    #new keys related to windows ai schedled task 
+    #npu check 
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'HardwareCompatibility' /t REG_DWORD /d '0' /f 
+    #dont know
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'ITManaged' /t REG_DWORD /d '0' /f
+    #enabled by windows ai schedled task 
+    #set to 1 in the us 
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'AllowedInRegion' /t REG_DWORD /d '0' /f
+    #enabled by windows ai schelded task 
+    # policy enabled = 1 when recall is enabled in group policy 
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'PolicyConfigured' /t REG_DWORD /d '0' /f
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'PolicyEnabled' /t REG_DWORD /d '0' /f
+    #dont know
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'FTDisabledState' /t REG_DWORD /d '0' /f
+    #prob the npu check failing
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'MeetsAdditionalDriverRequirements' /t REG_DWORD /d '0' /f
+    #sucess from last run 
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'LastOperationKind' /t REG_DWORD /d '2' /f
+    #doesnt install recall for me so 0
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'AttemptedInstallCount' /t REG_DWORD /d '0' /f
+    #windows build
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'LastBuild' /t REG_DWORD /d '7171' /f
+    #5 for no good reason
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'MaxInstallAttemptsAllowed' /t REG_DWORD /d '5' /f
+    #>
+    #removing it does not get remade on restart so we will just remove it for now 
+    Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /f *>$null
+
     #set for local machine and current user to be sure
     $hives = @('HKLM', 'HKCU')
     foreach ($hive in $hives) {
