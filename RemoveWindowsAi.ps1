@@ -1064,7 +1064,7 @@ function Remove-AI-CBS-Packages {
         $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
         $ProgressPreference = 'SilentlyContinue'
         Get-ChildItem $regPath | ForEach-Object {
-            $value = Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility
+            $value = try { Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility -ErrorAction SilentlyContinue } catch {}
             if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*') {
                 Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
                 New-ItemProperty "registry::$($_.Name)" -Name DefVis -PropertyType DWord -Value 2 -Force
