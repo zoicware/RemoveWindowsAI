@@ -453,6 +453,16 @@ function Disable-Registry-Keys {
     $command = "reg add 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /v 'ActivationType' /t REG_DWORD /d 0 /f"
     Run-Trusted -command $command -psversion $psversion
 
+    #remove windows ai dll contracts 
+    $command = "
+    Reg delete 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\WellKnownContracts' /v 'Windows.AI.Actions.ActionsContract' /f
+    Reg delete 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\WellKnownContracts' /v 'Windows.AI.Agents.AgentsContract' /f
+    Reg delete 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\WellKnownContracts' /v 'Windows.AI.MachineLearning.MachineLearningContract' /f 
+    Reg delete 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\WellKnownContracts' /v 'Windows.AI.MachineLearning.Preview.MachineLearningPreviewContract' /f
+    "
+    Run-Trusted -command $command -psversion $psversion
+    
+
     #disable ai dlls from activating (these should exist already on most pcs but i think they are not on copilot+ pcs)
     $dllPaths = @(
         'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9AddBASetting'
