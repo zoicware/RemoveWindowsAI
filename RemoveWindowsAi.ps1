@@ -304,14 +304,15 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' /v 'Start' /t REG_DWORD /d @('4', '2')[$revert] /f *>$null
     Stop-Service -Name WSAIFabricSvc -Force -ErrorAction SilentlyContinue
     $backupPath = "$env:USERPROFILE\RemoveWindowsAI\Backup"
-    $backupFile = 'WSAIFabricSvc.reg'
+    $backupFileWSAI = 'WSAIFabricSvc.reg'
+    $backupFileAAR = 'AARSVC.reg'
     if ($revert) {
-        if (Test-Path "$backupPath\$backupFile") {
-            Reg.exe import "$backupPath\$backupFile" *>$null
+        if (Test-Path "$backupPath\$backupFileWSAI") {
+            Reg.exe import "$backupPath\$backupFileWSAI" *>$null
             sc.exe create WSAIFabricSvc binPath= "$env:windir\System32\svchost.exe -k WSAIFabricSvcGroup -p" *>$null
         }
         else {
-            Write-Status -msg "Path Not Found: $backupPath\$backupFile" -errorOutput $true
+            Write-Status -msg "Path Not Found: $backupPath\$backupFileWSAI" -errorOutput $true
         }
         
     }
@@ -323,17 +324,53 @@ function Disable-Registry-Keys {
                 New-Item $backupPath -Force -ItemType Directory | Out-Null
             }
             #this will hang if the service has already been exported
-            if (!(Test-Path "$backupPath\$backupFile")) {
-                Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFile" | Out-Null
+            if (!(Test-Path "$backupPath\$backupFileWSAI")) {
+                Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFileWSAI" | Out-Null
             }
         }
         Write-Status -msg 'Removing up WSAIFabricSvc...'
         #delete the service
         sc.exe delete WSAIFabricSvc *>$null
     }
+    if (!$revert) {
+        #remove conversational agent service (used to be used for cortana, prob going to be updated for new ai agents and copilot)
+        $aarSVCName = (Get-Service | Where-Object { $_.name -like '*aarsvc*' }).Name
+
+        if ($aarSVCName) {
+            if ($backup) {
+                Write-Status -msg 'Backing up Agent Activation Runtime Service...'
+                #export the service to a reg file before removing it 
+                if (!(Test-Path $backupPath)) {
+                    New-Item $backupPath -Force -ItemType Directory | Out-Null
+                }
+                #this will hang if the service has already been exported
+                if (!(Test-Path "$backupPath\$backupFileAAR")) {
+                    Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\AarSvc' "$backupPath\$backupFileAAR" | Out-Null
+                }
+            }
+            Write-Status -msg 'Removing Agent Activation Runtime Service...'
+            #delete the service
+            Stop-Service -Name $aarSVCName -Force -ErrorAction SilentlyContinue
+            sc.exe delete AarSvc *>$null
+        }
+    }
+    else {
+        Write-Status 'Restoring Agent Activation Runtime Service...'
+
+        if (Test-Path "$backupPath\$backupFileAAR") {
+            Reg.exe import "$backupPath\$backupFileAAR" *>$null
+            sc.exe create AarSvc binPath= "$env:windir\system32\svchost.exe -k AarSvcGroup -p" *>$null
+        }
+        else {
+            Write-Status -msg "Path Not Found: $backupPath\$backupFileAAR" -errorOutput $true
+        }
+    }
+  
+
+
     #block copilot from communicating with server
     if ($revert) {
-        if ((Test-Path "$backupPath\HKCR_Copilot.reg") -and (Test-Path "$backupPath\HKCU_Copilot.reg")) {
+        if ((Test-Path "$backupPath\HKCR_Copilot.reg") -or (Test-Path "$backupPath\HKCU_Copilot.reg")) {
             Reg.exe import "$backupPath\HKCR_Copilot.reg" *>$null
             Reg.exe import "$backupPath\HKCU_Copilot.reg" *>$null
         }
