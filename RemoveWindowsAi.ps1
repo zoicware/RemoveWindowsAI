@@ -1262,12 +1262,12 @@ function Remove-AI-Files {
         if (!(Test-Path $appsPath6)) {
             $appsPath6 = "$env:windir\SystemApps\SxS"
         }
-        $pathsSystemApps = (Get-ChildItem -Path $appsPath -Directory -Force).FullName 
-        $pathsWindowsApps = (Get-ChildItem -Path $appsPath2 -Directory -Force).FullName 
-        $pathsAppRepo = (Get-ChildItem -Path $appsPath3 -Directory -Force -Recurse).FullName 
-        $pathsServicing = (Get-ChildItem -Path $appsPath4 -Directory -Force -Recurse).FullName
-        $pathsCatRoot = (Get-ChildItem -Path $appsPath5 -Directory -Force -Recurse).FullName 
-        $pathsSXS = (Get-ChildItem -Path $appsPath6 -Directory -Force).FullName 
+        $pathsSystemApps = (Get-ChildItem -Path $appsPath -Directory -Force -ErrorAction SilentlyContinue).FullName 
+        $pathsWindowsApps = (Get-ChildItem -Path $appsPath2 -Directory -Force -ErrorAction SilentlyContinue).FullName 
+        $pathsAppRepo = (Get-ChildItem -Path $appsPath3 -Directory -Force -Recurse -ErrorAction SilentlyContinue).FullName 
+        $pathsServicing = (Get-ChildItem -Path $appsPath4 -Directory -Force -Recurse -ErrorAction SilentlyContinue).FullName
+        $pathsCatRoot = (Get-ChildItem -Path $appsPath5 -Directory -Force -Recurse -ErrorAction SilentlyContinue).FullName 
+        $pathsSXS = (Get-ChildItem -Path $appsPath6 -Directory -Force -ErrorAction SilentlyContinue).FullName 
 
         $packagesPath = @()
         #get full path
