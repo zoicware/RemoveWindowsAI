@@ -1311,7 +1311,24 @@ function Remove-AI-Files {
                 $packagesPath += $path
             }
         }
-    
+
+        #add app actions mcp host
+        $paths = @(
+            "$env:LOCALAPPDATA\Microsoft\WindowsApps\ActionsMcpHost.exe"
+            "$env:SystemRoot\System32\config\systemprofile\AppData\Local\Microsoft\WindowsApps\ActionsMcpHost.exe"
+            "$env:SystemRoot\System32\config\systemprofile\AppData\Local\Microsoft\WindowsApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\ActionsMcpHost.exe"
+            "$env:LOCALAPPDATA\Microsoft\WindowsApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\ActionsMcpHost.exe"
+        )
+
+        foreach ($path in $paths) {
+            if (Test-Path $path) {
+                $packagesPath += $path
+            }
+        }
+
+        reg.exe delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\App Paths\ActionsMcpHost.exe' /f *>$null
+        reg.exe delete 'HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths\ActionsMcpHost.exe' /f *>$null
+
         if ($backup) {
             Write-Status -msg 'Backing Up AI Files...'
             $backupDir = "$env:USERPROFILE\RemoveWindowsAI\Backup\AIFiles"
