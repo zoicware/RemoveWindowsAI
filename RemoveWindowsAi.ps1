@@ -554,7 +554,7 @@ function Disable-Registry-Keys {
 
     #force policy changes
     Write-Status -msg 'Applying Registry Changes...'
-    gpupdate /force >$null
+    gpupdate /force /wait:0 >$null
 
 }
 
