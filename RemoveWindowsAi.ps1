@@ -285,6 +285,8 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\1853569164' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\4098520719' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\929719951' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    #enable new feature to hide ai actions in context menu when none are avaliable 
+    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\1646260367' /v 'EnabledState' /t REG_DWORD /d @('2', '0')[$revert] /f *>$null
     #disable additional ai velocity ids found from: https://github.com/phantomofearth/windows-velocity-feature-lists
     #keep in mind these may or may not do anything depending on the windows build 
     #disable copilot nudges
@@ -480,77 +482,6 @@ function Disable-Registry-Keys {
     "
     Run-Trusted -command $command -psversion $psversion
     
-
-    #disable ai dlls from activating (these should exist already on most pcs but i think they are not on copilot+ pcs)
-    $dllPaths = @(
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9AddBASetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9BAListSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9BlockedWebsiteListSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9BlockedWebsiteSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9BlockedWebsiteSetting2'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9CopilotSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9E'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9FilteringTelemetrySetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9HomeSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9MTSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9MTSettingQuickAction'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9StorageAllocationSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9StorageDeletionSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9StorageDeletionTimeframeSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9StorageDiskUsageSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9StorageRetentionSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.A9StorageSizeSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\SystemSettings.A9.C2DMTSetting'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.Actions.ActionRuntime'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.ImageFeatureValue'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.LearningModel'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.LearningModelBinding'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.LearningModelDevice'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.LearningModelSession'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.LearningModelSessionOptions'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.Preview.LearningModelBindingPreview'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.Preview.LearningModelPreview'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorBoolean'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorDouble'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorFloat'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorFloat16Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorInt16Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorInt32Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorInt64Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorInt8Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorString'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorUInt16Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorUInt32Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorUInt64Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.AI.MachineLearning.TensorUInt8Bit'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Internal.AI.Agents.Mcp.McpAccessManager'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Internal.AI.Agents.Mcp.McpConsentExperience'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Internal.AI.Agents.Mcp.McpConsentManager'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Internal.CapabilityAccess.UsageHistory.CopilotCapabilityUsageHistory'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.Actions.ActionCurationPolicyStorage'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.Actions.CustomActionEntityStorage'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.Agents.Mcp.McpAccessManager'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.Agents.Mcp.McpConsentManager'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.MachineLearning.WisePredictionOptions'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.MachineLearning.WisePredictor'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.MachineLearning.WiseRankableItem'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.MachineLearning.WiseRankedItem'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.MachineLearning.WiseRanker'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.MachineLearning.WiseRankingOptions'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.AI.ResourceManagement.AIProcessResourceManager'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.System.A9Settings.A9OptionalComponentController'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.System.A9Settings.AutomatedCaptureController'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.System.A9Settings.DataExportOptions'
-        'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WindowsUdk.UI.Shell.WindowsCopilot'
-    )
-    
-    foreach ($path in $dllPaths) {
-        if (!(Test-Path "registry::$path")) {
-            $command = "reg add $path /v 'ActivationType' /t REG_DWORD /d 0 /f"
-            Run-Trusted -command $command 
-            Start-Sleep 1
-        }
-    }
 
     #force policy changes
     Write-Status -msg 'Applying Registry Changes...'
