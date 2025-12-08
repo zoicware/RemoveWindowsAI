@@ -352,7 +352,7 @@ function Disable-Registry-Keys {
     }
     if (!$revert) {
         #remove conversational agent service (used to be used for cortana, prob going to be updated for new ai agents and copilot)
-        $aarSVCName = (Get-Service | Where-Object { $_.name -like '*aarsvc*' }).Name
+        $aarSVCName = (Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.name -like '*aarsvc*' }).Name
 
         if ($aarSVCName) {
             if ($backup) {
