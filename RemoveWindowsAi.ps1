@@ -322,7 +322,13 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeErase' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableRemoveBackground' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' /v 'Start' /t REG_DWORD /d @('4', '2')[$revert] /f *>$null
-    Stop-Service -Name WSAIFabricSvc -Force -ErrorAction SilentlyContinue
+    try {
+        Stop-Service -Name WSAIFabricSvc -Force -ErrorAction Stop
+    }
+    catch {
+        #ignore error when svc is already removed
+    }
+    
     $backupPath = "$env:USERPROFILE\RemoveWindowsAI\Backup"
     $backupFileWSAI = 'WSAIFabricSvc.reg'
     $backupFileAAR = 'AARSVC.reg'
@@ -348,7 +354,7 @@ function Disable-Registry-Keys {
                 Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFileWSAI" | Out-Null
             }
         }
-        Write-Status -msg 'Removing up WSAIFabricSvc...'
+        Write-Status -msg 'Removing WSAIFabricSvc...'
         #delete the service
         sc.exe delete WSAIFabricSvc *>$null
     }
@@ -370,7 +376,13 @@ function Disable-Registry-Keys {
             }
             Write-Status -msg 'Removing Agent Activation Runtime Service...'
             #delete the service
-            Stop-Service -Name $aarSVCName -Force -ErrorAction SilentlyContinue
+            try {
+                Stop-Service -Name $aarSVCName -Force -ErrorAction Stop
+            }
+            catch {
+                #ignore error when svc is already removed
+            }
+            
             sc.exe delete AarSvc *>$null
         }
     }
