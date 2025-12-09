@@ -1529,7 +1529,13 @@ function Remove-AI-Files {
         foreach ($keyword in $aiKeyWords) {
             foreach ($location in $regLocations) {
                 Get-ChildItem $location -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like "*$keyword*" } | ForEach-Object {
-                    Remove-Item $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                    try {
+                        Remove-Item $_.PSPath -Recurse -Force -ErrorAction Stop
+                    }
+                    catch {
+                        #ignore when path is null
+                    }
+                    
                 }
             }
 
