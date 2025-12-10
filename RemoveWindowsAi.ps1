@@ -1636,7 +1636,15 @@ function Hide-AI-Components {
     }
     else {
         if ($existingSettings -and $existingSettings -notlike '*aicomponents;*') {
-            $newval = $existingSettings + 'aicomponents;'
+           
+            if (!($existingSettings.endswith(';'))) {
+                #doesnt have trailing ; so need to add it 
+                $newval = $existingSettings + ';aicomponents;'
+            }
+            else {
+                $newval = $existingSettings + 'aicomponents;'
+            }
+            
             Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d $newval /f >$null
         }
         elseif ($existingSettings -eq $null) {
