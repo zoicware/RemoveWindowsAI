@@ -360,7 +360,12 @@ function Disable-Registry-Keys {
     }
     if (!$revert) {
         #remove conversational agent service (used to be used for cortana, prob going to be updated for new ai agents and copilot)
-        $aarSVCName = (Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.name -like '*aarsvc*' }).Name
+        try {
+            $aarSVCName = (Get-CimInstance -ClassName Win32_Service -Filter "Name LIKE '%aarsvc%'" -ErrorAction SilentlyContinue).Name
+        }
+        catch {
+            $aarSVCName = $null
+        }
 
         if ($aarSVCName) {
             if ($backup) {
@@ -2347,5 +2352,6 @@ if (!$nonInteractive) {
     Write-Host 'Done! Press Any Key to Exit...' -ForegroundColor Green
     $Host.UI.RawUI.ReadKey() *>$null
 }
+
 
 exit
