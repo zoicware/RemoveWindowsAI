@@ -531,7 +531,14 @@ function Install-NOAIPackage {
             Write-Status -msg 'RemoveWindowsAI Packages Found Locally...'
 
             Write-Status -msg 'Installing RemoveWindowsAI Package...'
-            Add-WindowsPackage -Online -PackagePath "$PSScriptRoot\RemoveWindowsAIPackage\$arch\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck
+            try {
+                Add-WindowsPackage -Online -PackagePath "$PSScriptRoot\RemoveWindowsAIPackage\$arch\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck -ErrorAction Stop
+            }
+            catch {
+                #user is using powershell 7 use dism command as fallback
+                dism.exe /Online /Add-Package /PackagePath:"$PSScriptRoot\RemoveWindowsAIPackage\$arch\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" /NoRestart /IgnoreCheck
+            }
+           
         }
         else {
             Write-Status -msg 'Downloading RemoveWindowsAI Package From Github...'
@@ -545,7 +552,12 @@ function Install-NOAIPackage {
             }
 
             Write-Status -msg 'Installing RemoveWindowsAI Package...'
-            Add-WindowsPackage -Online -PackagePath "$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck
+            try {
+                Add-WindowsPackage -Online -PackagePath "$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck -ErrorAction Stop
+            }
+            catch {
+                dism.exe /Online /Add-Package /PackagePath:"$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" /NoRestart /IgnoreCheck
+            }
         }
     }
 
@@ -1082,17 +1094,31 @@ function Remove-Recall-Optional-Feature {
         #Enable-WindowsOptionalFeature -Online -FeatureName 'Recall' -All -NoRestart
         #remove recall optional feature 
         Write-Status -msg 'Removing Recall Optional Feature...'
-        $state = (Get-WindowsOptionalFeature -Online -FeatureName 'Recall').State
-        if ($state -and $state -ne 'DisabledWithPayloadRemoved') {
-            $ProgressPreference = 'SilentlyContinue'
-            try {
-                Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
+        try {
+            $state = (Get-WindowsOptionalFeature -Online -FeatureName 'Recall' -ErrorAction Stop).State
+            if ($state -and $state -ne 'DisabledWithPayloadRemoved') {
+                $ProgressPreference = 'SilentlyContinue'
+                try {
+                    Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -Remove -NoRestart -ErrorAction Stop *>$null
+                }
+                catch {
+                    #incase get-windowsoptionalfeature works but disable doesnt 
+                    dism.exe /Online /Disable-Feature /FeatureName:Recall /Remove /NoRestart /Quiet
+                }
             }
-            catch {
-                #hide error
-            }
+        }
+        catch {
+            #if get-windowsoptionalfeature errors fallback to dism
+            $dismOutput = dism.exe /Online /Get-FeatureInfo /FeatureName:Recall
     
-        } 
+            if ($LASTEXITCODE -eq 0) {
+                $isDisabledWithPayloadRemoved = $dismOutput | Select-String -Pattern 'State\s*:\s*Disabled with Payload Removed'
+        
+                if (!$isDisabledWithPayloadRemoved) {
+                    dism.exe /Online /Disable-Feature /FeatureName:Recall /Remove /NoRestart /Quiet
+                }
+            }
+        }
     }
 }
 
@@ -1116,7 +1142,9 @@ function Remove-AI-CBS-Packages {
                     Get-ChildItem "$env:windir\servicing\Packages" -Filter "*$($_.PSChildName)*" | Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
                 }
                 catch {
-                    #ignore any errors like rpc failed etc
+                    #fallback to dism when user is using powershell 7
+                    dism.exe /Online /Remove-Package /PackageName:$($_.PSChildName) /NoRestart /Quiet
+                    Get-ChildItem "$env:windir\servicing\Packages" -Filter "*$($_.PSChildName)*" | Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
                 }
         
             }
