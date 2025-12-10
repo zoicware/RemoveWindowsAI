@@ -54,6 +54,10 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  #### Run From Powershell Console as Administrator
  ---
 
+ > [!WARNING]
+ > Running the script with PowerShell 7 can cause issues, to avoid this ensure you are running Windows PowerShell (5.1)
+ >
+
  ### Launch with UI
  ```PowerShell
  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1")))
