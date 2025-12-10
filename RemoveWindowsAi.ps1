@@ -1131,23 +1131,38 @@ function Remove-AI-CBS-Packages {
         $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
         $ProgressPreference = 'SilentlyContinue'
         Get-ChildItem $regPath | ForEach-Object {
-            $value = try { Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility -ErrorAction SilentlyContinue } catch {}
-            if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*') {
-                Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
-                New-ItemProperty "registry::$($_.Name)" -Name DefVis -PropertyType DWord -Value 2 -Force
-                Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
-                Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
-                try {
-                    Remove-WindowsPackage -Online -PackageName $_.PSChildName -NoRestart -ErrorAction Stop *>$null
-                    Get-ChildItem "$env:windir\servicing\Packages" -Filter "*$($_.PSChildName)*" | Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-                }
-                catch {
-                    #fallback to dism when user is using powershell 7
-                    dism.exe /Online /Remove-Package /PackageName:$($_.PSChildName) /NoRestart /Quiet
-                    Get-ChildItem "$env:windir\servicing\Packages" -Filter "*$($_.PSChildName)*" | Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-                }
+            $value = try { Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility -ErrorAction Stop } catch { $null }
+    
+            if ($value -ne $null) {
+                if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*') {
+                    Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
+                    New-ItemProperty "registry::$($_.Name)" -Name DefVis -PropertyType DWord -Value 2 -Force
+                    Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
+                    Remove-Item "registry::$($_.Name)\Updates" -Force -ErrorAction SilentlyContinue
+                    try {
+                        Remove-WindowsPackage -Online -PackageName $_.PSChildName -NoRestart -ErrorAction Stop *>$null
+                        $paths = Get-ChildItem "$env:windir\servicing\Packages" -Filter "*$($_.PSChildName)*" -ErrorAction SilentlyContinue 
+                        foreach ($path in $paths) {
+                            if ($path) {
+                                Remove-Item $path.FullName -Force -ErrorAction SilentlyContinue
+                            }
+                        }
+                        
+                    }
+                    catch {
+                        #fallback to dism when user is using powershell 7
+                        dism.exe /Online /Remove-Package /PackageName:$($_.PSChildName) /NoRestart /Quiet
+                        $paths = Get-ChildItem "$env:windir\servicing\Packages" -Filter "*$($_.PSChildName)*" -ErrorAction SilentlyContinue 
+                        foreach ($path in $paths) {
+                            if ($path) {
+                                Remove-Item $path.FullName -Force -ErrorAction SilentlyContinue
+                            }
+                        }                    
+                    }
         
+                }
             }
+            
         }
     }
 }
@@ -2229,6 +2244,7 @@ else {
                 'WorkloadsSessionHost.exe'
                 'WebViewHost.exe'
                 'aimgr.exe'
+                'AppActions.exe'
             )
             foreach ($procName in $aiProcesses) {
                 taskkill /im $procName /f *>$null
