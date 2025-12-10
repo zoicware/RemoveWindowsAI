@@ -1410,6 +1410,18 @@ function Remove-AI-Files {
             if ($fullPath -ne $null) { Remove-Item -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue }
         }
     
+
+        #remove copilot update in edge update dir
+        $dir = "${env:ProgramFiles(x86)}\Microsoft\EdgeUpdate"
+        if (Test-Path $dir) {
+            $paths = Get-ChildItem $dir -Recurse -Filter '*CopilotUpdate.exe*' 
+            foreach ($path in $paths) {
+                if (Test-Path $path.FullName) {
+                    Remove-Item $path.FullName -Force
+                }
+            }
+        }
+        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\EdgeUpdate' /v 'CopilotUpdatePath' /f *>$null
     
         #remove additional installers
         $inboxapps = 'C:\Windows\InboxApps'
