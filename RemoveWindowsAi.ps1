@@ -360,7 +360,13 @@ function Disable-Registry-Keys {
     }
     if (!$revert) {
         #remove conversational agent service (used to be used for cortana, prob going to be updated for new ai agents and copilot)
-        $aarSVCName = (Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.name -like '*aarsvc*' }).Name
+        try {
+            $aarSVCName = (Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.name -like '*aarsvc*' }).Name
+        }
+        catch {
+            #aarsvc already removed
+        }
+        
 
         if ($aarSVCName) {
             if ($backup) {
@@ -380,7 +386,13 @@ function Disable-Registry-Keys {
                 Stop-Service -Name $aarSVCName -Force -ErrorAction Stop
             }
             catch {
-                #ignore error when svc is already removed
+                try {
+                    Stop-Service -Name AarSvc -Force -ErrorAction Stop
+                }
+                catch {
+                    #neither are running
+                }
+                
             }
             
             sc.exe delete AarSvc *>$null
