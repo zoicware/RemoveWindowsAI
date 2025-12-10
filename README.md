@@ -46,6 +46,11 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 ### Read the Script Docs Here
   > **[Documentation](https://github.com/zoicware/RemoveWindowsAI/blob/main/Documentation.md)**
 
+  > [!WARNING]
+  > Some third party anti-viruses will falsely detect the script as malicious, obviously this is a false positive and the anti-virus will need to be temporarily disabled or set the script as an exclusion.
+  >
+  > Due to the nature of making advanced changes to the system many debloat tools/scripts will be falsely detected as malware... if you are unsure about the script I always recommend testing any software in a virtual machine first
+
 ---
 
 
