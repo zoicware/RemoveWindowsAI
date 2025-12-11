@@ -1422,6 +1422,7 @@ function Remove-AI-Files {
             }
         }
         Reg.exe delete 'HKLM\SOFTWARE\Microsoft\EdgeUpdate' /v 'CopilotUpdatePath' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate' /v 'CopilotUpdatePath' /f *>$null
     
         #remove additional installers
         $inboxapps = 'C:\Windows\InboxApps'
