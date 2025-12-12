@@ -234,6 +234,9 @@ function Disable-Registry-Keys {
         Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableClickToDo' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'TurnOffSavingSnapshots' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableSettingsAgent' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableAgentConnectors' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableAgentWorkspaces' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableRemoteAgentConnectors' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Microsoft\Windows\Shell\Copilot\BingChat" /v 'IsUserEligible' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Microsoft\Windows\Shell\Copilot" /v 'IsCopilotAvailable' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Microsoft\Windows\Shell\Copilot" /v 'CopilotDisabledReason' /t REG_SZ /d @('FeatureIsDisabled', ' ')[$revert] /f *>$null
@@ -324,7 +327,12 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeErase' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableRemoveBackground' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     #disable ask copilot in context menu
-    Reg.exe add 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}' /t REG_SZ /d 'Ask Copilot' /f *>$null
+    if ($revert) {
+        Reg.exe delete 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}' /f *>$null
+    }
+    else {
+        Reg.exe add 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}' /t REG_SZ /d 'Ask Copilot' /f *>$null
+    }
     #Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' /v 'Start' /t REG_DWORD /d @('4', '2')[$revert] /f *>$null
     try {
         Stop-Service -Name WSAIFabricSvc -Force -ErrorAction Stop
@@ -498,8 +506,17 @@ function Disable-Registry-Keys {
     #disable gaming copilot 
     #found from: https://github.com/meetrevision/playbook/issues/197
     #not sure this really does anything in my testing gaming copilot still appears 
-    $command = "reg add 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /v 'ActivationType' /t REG_DWORD /d 0 /f"
-    Run-Trusted -command $command -psversion $psversion
+    if ($revert) {
+        $command = "reg delete 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /f"
+        Run-Trusted -command $command -psversion $psversion
+    }
+    else {
+        $command = "reg add 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /v 'ActivationType' /t REG_DWORD /d 0 /f;
+    reg add 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /v 'Server' /t REG_SZ /d `" `" /f
+    "
+        Run-Trusted -command $command -psversion $psversion
+    }
+    
 
     #remove windows ai dll contracts 
     $command = "
@@ -563,6 +580,24 @@ function Install-NOAIPackage {
                 dism.exe /Online /Add-Package /PackagePath:"$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" /NoRestart /IgnoreCheck
             }
         }
+    }
+    else {
+        
+        $package = Get-WindowsPackage -Online | Where-Object { $_.PackageName -like '*zoicware*' }
+        if ($package) {
+            Write-Status 'Removing Custom Windows Update Package...' 
+            try {
+                Remove-WindowsPackage -Online -PackageName $package.PackageName -NoRestart -ErrorAction Stop
+            }
+            catch {
+                dism.exe /Online /remove-package /PackageName:$($package.PackageName) /NoRestart
+            }
+            
+        }
+        else {
+            Write-Status 'Unable to Find Update Package...' -errorOutput $true
+        }
+        
     }
 
 }
@@ -1640,9 +1675,9 @@ function Hide-AI-Components {
     
     if ($revert) {
         #if the key is not just hide ai components then just remove it and retain the rest
-        if ($existingSettings -ne 'hide:aicomponents;') {
+        if ($existingSettings -ne 'hide:aicomponents;appactions;') {
             #in the event that this is just aicomponents but multiple times newkey will just be hide: which is valid
-            $newKey = $existingSettings -replace 'aicomponents;', ''
+            $newKey = $existingSettings -replace 'aicomponents;appactions;', ''
             Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d $newKey /f >$null
         }
         else {
@@ -1654,16 +1689,16 @@ function Hide-AI-Components {
            
             if (!($existingSettings.endswith(';'))) {
                 #doesnt have trailing ; so need to add it 
-                $newval = $existingSettings + ';aicomponents;'
+                $newval = $existingSettings + ';aicomponents;appactions;'
             }
             else {
-                $newval = $existingSettings + 'aicomponents;'
+                $newval = $existingSettings + 'aicomponents;appactions;'
             }
             
             Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d $newval /f >$null
         }
         elseif ($existingSettings -eq $null) {
-            Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d 'hide:aicomponents;' /f >$null
+            Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer' /v 'SettingsPageVisibility' /t REG_SZ /d 'hide:aicomponents;appactions;' /f >$null
         }
        
     }
