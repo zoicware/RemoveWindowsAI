@@ -323,7 +323,7 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeFill' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeErase' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableRemoveBackground' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' /v 'Start' /t REG_DWORD /d @('4', '2')[$revert] /f *>$null
+    #Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' /v 'Start' /t REG_DWORD /d @('4', '2')[$revert] /f *>$null
     try {
         Stop-Service -Name WSAIFabricSvc -Force -ErrorAction Stop
     }
@@ -352,9 +352,9 @@ function Disable-Registry-Keys {
                 New-Item $backupPath -Force -ItemType Directory | Out-Null
             }
             #this will hang if the service has already been exported
-            if (!(Test-Path "$backupPath\$backupFileWSAI")) {
-                Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFileWSAI" | Out-Null
-            }
+            # if (!(Test-Path "$backupPath\$backupFileWSAI")) {
+            Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFileWSAI" /y | Out-Null #add overwrite file /y switch
+            # }
         }
         Write-Status -msg 'Removing WSAIFabricSvc...'
         #delete the service
@@ -378,9 +378,9 @@ function Disable-Registry-Keys {
                     New-Item $backupPath -Force -ItemType Directory | Out-Null
                 }
                 #this will hang if the service has already been exported
-                if (!(Test-Path "$backupPath\$backupFileAAR")) {
-                    Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\AarSvc' "$backupPath\$backupFileAAR" | Out-Null
-                }
+                # if (!(Test-Path "$backupPath\$backupFileAAR")) {
+                Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\AarSvc' "$backupPath\$backupFileAAR" /y | Out-Null
+                # }
             }
             Write-Status -msg 'Removing Agent Activation Runtime Service...'
             #delete the service
