@@ -272,7 +272,8 @@ function Disable-Registry-Keys {
     taskkill.exe /im msedge.exe /f *>$null
     $config = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Local State"
     if (Test-Path $config) {
-        $jsonContent = Get-Content $config | ConvertFrom-Json
+        #powershell core bug where json that has empty strings will error
+        $jsonContent = (Get-Content $config).Replace('""', '"_empty"') | ConvertFrom-Json
 
         if (($jsonContent.browser | Get-Member -MemberType NoteProperty enabled_labs_experiments) -eq $null) {
             $jsonContent.browser | Add-Member -MemberType NoteProperty -Name enabled_labs_experiments -Value @()
@@ -282,6 +283,8 @@ function Disable-Registry-Keys {
         )
        
         $newContent = $jsonContent | ConvertTo-Json -Compress -Depth 10 
+        #add back the empty strings 
+        $newContent = $newContent.replace('"_empty"', '""')
         Set-Content $config -Value $newContent -Encoding UTF8 -Force
     }
    
