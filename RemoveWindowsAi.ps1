@@ -266,6 +266,25 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'AIGenThemesEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'DevToolsGenAiSettings' /t REG_DWORD /d @('2', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'ShareBrowsingHistoryWithCopilotSearchAllowed' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    #disable edge copilot mode 
+    # "enabled_labs_experiments":["edge-copilot-mode@2"]
+    # view flags at edge://flags
+    taskkill.exe /im msedge.exe /f *>$null
+    $config = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Local State"
+    if (Test-Path $config) {
+        $jsonContent = Get-Content $config | ConvertFrom-Json
+
+        if (($jsonContent.browser | Get-Member -MemberType NoteProperty enabled_labs_experiments) -eq $null) {
+            $jsonContent.browser | Add-Member -MemberType NoteProperty -Name enabled_labs_experiments -Value @()
+        }
+        $jsonContent.browser.enabled_labs_experiments += @(
+            'edge-copilot-mode@2'
+        )
+       
+        $newContent = $jsonContent | ConvertTo-Json -Compress -Depth 10 
+        Set-Content $config -Value $newContent -Encoding UTF8 -Force
+    }
+   
     #disable office ai with group policy
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\training\general' /v 'disabletraining' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\training\specific\adaptivefloatie' /v 'disabletrainingofadaptivefloatie' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
@@ -1606,6 +1625,35 @@ function Remove-AI-Files {
         $command = "Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell\Update\Packages\MicrosoftWindows.Client.CoreAI_cw5n1h2txyewy' /f"
         Run-Trusted -command $command -psversion $psversion
 
+        #remove app actions files 
+        #these will get remade when updating
+        taskkill.exe /im AppActions.exe /f *>$null
+        taskkill.exe /im VisualAssist.exe /f *>$null
+        $paths = @(
+            "$env:windir\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\ActionUI"
+            "$env:windir\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\VisualAssist"
+            "$env:windir\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\AppActions.exe"
+            "$env:windir\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\AppActions.dll"
+            "$env:windir\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\VisualAssistExe.exe"
+            "$env:windir\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\VisualAssistExe.dll"
+        )
+
+        Write-Status -msg 'Removing App Actions Files...'
+        foreach ($path in $paths) {
+            if (Test-Path $path) {
+                if ((Get-Item $path).PSIsContainer) {
+                    takeown /f "$path" /r /d Y *>$null
+                    icacls "$path" /grant *S-1-5-32-544:F /t *>$null
+                    Remove-Item "$path" -Force -Recurse -ErrorAction SilentlyContinue
+                }
+                else {
+                    takeown /f "$path" *>$null
+                    icacls "$path" /grant *S-1-5-32-544:F /t *>$null
+                    Remove-Item "$path" -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+        
 
         Write-Status -msg 'Removing AI From Component Store (WinSxS)...'
         #additional dirs and reg keys
