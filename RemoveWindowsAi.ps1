@@ -278,10 +278,11 @@ function Disable-Registry-Keys {
         if (($jsonContent.browser | Get-Member -MemberType NoteProperty enabled_labs_experiments) -eq $null) {
             $jsonContent.browser | Add-Member -MemberType NoteProperty -Name enabled_labs_experiments -Value @()
         }
-        $jsonContent.browser.enabled_labs_experiments += @(
-            'edge-copilot-mode@2'
-        )
-       
+        $flag = 'edge-copilot-mode@2'
+        if ($jsonContent.browser.enabled_labs_experiments -notcontains $flag) {
+            $jsonContent.browser.enabled_labs_experiments += $flag
+        }
+        
         $newContent = $jsonContent | ConvertTo-Json -Compress -Depth 10 
         #add back the empty strings 
         $newContent = $newContent.replace('"_empty"', '""')
