@@ -283,9 +283,14 @@ function Disable-Registry-Keys {
             'edge-ntp-composer@2', #disables the copilot search in new tab page 
             'edge-compose@2' #disables the ai writing help 
         )
-        foreach ($flag in $flags) {
-            if ($jsonContent.browser.enabled_labs_experiments -notcontains $flag) {
-                $jsonContent.browser.enabled_labs_experiments += $flag
+        if ($revert) {
+            $jsonContent.browser.enabled_labs_experiments = $jsonContent.browser.enabled_labs_experiments | Where-Object { $_ -notin $flags }
+        }
+        else {
+            foreach ($flag in $flags) {
+                if ($jsonContent.browser.enabled_labs_experiments -notcontains $flag) {
+                    $jsonContent.browser.enabled_labs_experiments += $flag
+                }
             }
         }
         
