@@ -1165,11 +1165,11 @@ foreach ($choice in $aipackages) {
         Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe' /v 'RemovePackage' /t REG_DWORD /d '1' /f *>$null
 
         ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
-        $eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
-        $eolKeys = (Get-ChildItem $eolPath).Name
-        foreach ($path in $eolKeys) {
-            Remove-Item "registry::$path" -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        #  $eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
+        #  $eolKeys = (Get-ChildItem $eolPath).Name
+        #  foreach ($path in $eolKeys) {
+        #      Remove-Item "registry::$path" -Recurse -Force -ErrorAction SilentlyContinue
+        #  }
     }
 
 }
