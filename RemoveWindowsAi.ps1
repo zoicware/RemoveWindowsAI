@@ -273,7 +273,8 @@ function Disable-Registry-Keys {
     $config = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Local State"
     if (Test-Path $config) {
         #powershell core bug where json that has empty strings will error
-        $jsonContent = (Get-Content $config).Replace('""', '"_empty"') | ConvertFrom-Json
+        #$jsonContent = (Get-Content $config).Replace('""', '"_empty"') | ConvertFrom-Json
+        $jsonContent = (Get-Content $config -Raw) -replace '(?<!\\)""', '"_empty"' -replace '{\s*}', '{"_empty":"_empty"}' | ConvertFrom-Json
 
         try {
             if (($jsonContent.browser | Get-Member -MemberType NoteProperty enabled_labs_experiments -ErrorAction Stop) -eq $null) {
@@ -367,6 +368,11 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeFill' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeErase' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableRemoveBackground' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    # disable experimental agentic features
+    # Reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\IsoEnvBroker" /v "Enabled" /t REG_DWORD /d "0" /f
+    # Reg.exe add "HKLM\SYSTEM\ControlSet001\Services\IsoEnvBroker" /v "Enabled" /t REG_DWORD /d "0" /f
+    # leaving commented since its still only in preview builds
+
     #disable ask copilot in context menu
     if ($revert) {
         Reg.exe delete 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}' /f *>$null
