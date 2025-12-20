@@ -273,37 +273,46 @@ function Disable-Registry-Keys {
     $config = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Local State"
     if (Test-Path $config) {
         #powershell core bug where json that has empty strings will error
-        #$jsonContent = (Get-Content $config).Replace('""', '"_empty"') | ConvertFrom-Json
-        $jsonContent = (Get-Content $config -Raw) -replace '(?<!\\)""', '"_empty"' -replace '{\s*}', '{"_empty":"_empty"}' | ConvertFrom-Json
-
         try {
-            if (($jsonContent.browser | Get-Member -MemberType NoteProperty enabled_labs_experiments -ErrorAction Stop) -eq $null) {
-                $jsonContent.browser | Add-Member -MemberType NoteProperty -Name enabled_labs_experiments -Value @()
-            }
-            $flags = @(
-                'edge-copilot-mode@2', 
-                'edge-ntp-composer@2', #disables the copilot search in new tab page 
-                'edge-compose@2' #disables the ai writing help 
-            )
-            if ($revert) {
-                $jsonContent.browser.enabled_labs_experiments = $jsonContent.browser.enabled_labs_experiments | Where-Object { $_ -notin $flags }
-            }
-            else {
-                foreach ($flag in $flags) {
-                    if ($jsonContent.browser.enabled_labs_experiments -notcontains $flag) {
-                        $jsonContent.browser.enabled_labs_experiments += $flag
-                    }
-                }
-            }
-        
-            $newContent = $jsonContent | ConvertTo-Json -Compress -Depth 10 
-            #add back the empty strings 
-            $newContent = $newContent.replace('"_empty"', '""')
-            Set-Content $config -Value $newContent -Encoding UTF8 -Force
+            $jsonContent = (Get-Content $config).Replace('""', '"_empty"') | ConvertFrom-Json -ErrorAction Stop
+            $fail = $false
         }
         catch {
-            Write-Status -msg 'Edge Browser has never been opened on this machine unable to set flags...' -errorOutput $true
-            Write-Status -msg 'Open Edge once and run this tweak again' -errorOutput $true
+            Write-Status -msg 'Unable to set Edge flags to disable Copilot due to a different langauge being used' -errorOutput $true
+            Write-Status -msg 'You can manually disable the Copilot flags at [edge://flags] in the browser' -errorOutput $true
+            $fail = $true
+        }
+        
+        if (!$fail) {
+            try {
+                if (($jsonContent.browser | Get-Member -MemberType NoteProperty enabled_labs_experiments -ErrorAction Stop) -eq $null) {
+                    $jsonContent.browser | Add-Member -MemberType NoteProperty -Name enabled_labs_experiments -Value @()
+                }
+                $flags = @(
+                    'edge-copilot-mode@2', 
+                    'edge-ntp-composer@2', #disables the copilot search in new tab page 
+                    'edge-compose@2' #disables the ai writing help 
+                )
+                if ($revert) {
+                    $jsonContent.browser.enabled_labs_experiments = $jsonContent.browser.enabled_labs_experiments | Where-Object { $_ -notin $flags }
+                }
+                else {
+                    foreach ($flag in $flags) {
+                        if ($jsonContent.browser.enabled_labs_experiments -notcontains $flag) {
+                            $jsonContent.browser.enabled_labs_experiments += $flag
+                        }
+                    }
+                }
+        
+                $newContent = $jsonContent | ConvertTo-Json -Compress -Depth 10 
+                #add back the empty strings 
+                $newContent = $newContent.replace('"_empty"', '""')
+                Set-Content $config -Value $newContent -Encoding UTF8 -Force
+            }
+            catch {
+                Write-Status -msg 'Edge Browser has never been opened on this machine unable to set flags...' -errorOutput $true
+                Write-Status -msg 'Open Edge once and run this tweak again' -errorOutput $true
+            }
         }
         
     }
