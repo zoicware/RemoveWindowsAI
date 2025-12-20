@@ -1410,6 +1410,14 @@ function Remove-AI-Files {
             }
         }
 
+        foreach ($packageName in $aipackages) {
+            $path = Get-ChildItem "$env:LOCALAPPDATA\Packages" -Filter "*$packageName*" 
+            if ($path) {
+                $packagesPath += $path.FullName
+            }
+            
+        }
+
         reg.exe delete 'HKCU\Software\Microsoft\Windows\CurrentVersion\App Paths\ActionsMcpHost.exe' /f *>$null
         reg.exe delete 'HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths\ActionsMcpHost.exe' /f *>$null
 
@@ -1505,6 +1513,17 @@ function Remove-AI-Files {
                 }
             }
         }
+
+        $dir = "${env:ProgramFiles(x86)}\Microsoft"
+        if (Test-Path $dir) {
+            $paths = Get-ChildItem $dir -Recurse -Filter '*Copilot_setup*' 
+            foreach ($path in $paths) {
+                if (Test-Path $path.FullName) {
+                    Remove-Item $path.FullName -Force
+                }
+            }
+        }
+
         Reg.exe delete 'HKLM\SOFTWARE\Microsoft\EdgeUpdate' /v 'CopilotUpdatePath' /f *>$null
         Reg.exe delete 'HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate' /v 'CopilotUpdatePath' /f *>$null
     
@@ -1689,7 +1708,8 @@ function Remove-AI-Files {
             'AIX',
             'Copilot',
             'Recall',
-            'CoreAI'
+            'CoreAI',
+            'aimgr'
         )
         $regLocations = @(
             'registry::HKCR\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Storage',
@@ -1722,13 +1742,22 @@ function Remove-AI-Files {
                 }
             }
 
-            foreach ($dir in $dirs) {
-                Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*$keyword*" -and $_.FullName -notlike '*Photon*' } | ForEach-Object {
-                    #add paths to txt to delete with trusted installer
-                    Add-Content "$env:TEMP\PathsToDelete.txt" -Value $_.FullName | Out-Null
-                } 
-            }
         }
+
+        foreach ($dir in $dirs) {
+            Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object { 
+                $_.FullName -like "*$($aiKeyWords[0])*" -or 
+                $_.FullName -like "*$($aiKeyWords[1])*" -or 
+                $_.FullName -like "*$($aiKeyWords[2])*" -or
+                $_.FullName -like "*$($aiKeyWords[3])*" -or
+                $_.FullName -like "*$($aiKeyWords[4])*" -and
+                $(Test-Path $_.FullName -PathType Container) -eq $true 
+            } | ForEach-Object {
+                #add paths to txt to delete with trusted installer
+                Add-Content "$env:TEMP\PathsToDelete.txt" -Value $_.FullName | Out-Null
+            } 
+        }
+        
         
         $command = "Get-Content `"`$env:TEMP\PathsToDelete.txt`" | ForEach-Object {Remove-Item `$_ -Force -Recurse -EA 0}"
         Run-Trusted -command $command -psversion $psversion
