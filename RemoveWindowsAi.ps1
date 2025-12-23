@@ -10,11 +10,15 @@ param(
         'RemoveAIFiles',               
         'HideAIComponents',            
         'DisableRewrite',       
-        'RemoveRecallTasks')]
+        'RemoveRecallTasks',
+        'BlockTelemetry',
+        'ExportConfig',
+        'ShowStatus')]
     [array]$Options,
     [switch]$AllOptions,
     [switch]$revertMode,
-    [switch]$backupMode
+    [switch]$backupMode,
+    [switch]$ShowSystemReport
 )
 
 if ($nonInteractive) {
@@ -175,6 +179,425 @@ else {
 }
 
 #=====================================================================================
+# System Verification Functions
+#=====================================================================================
+
+function Get-SystemInfo {
+    <#
+    .SYNOPSIS
+    Retrieves comprehensive system information for AI removal compatibility check
+    #>
+    $info = [PSCustomObject]@{
+        OSVersion = [System.Environment]::OSVersion.Version
+        OSBuild = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
+        OSName = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName
+        Edition = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').EditionID
+        Architecture = $env:PROCESSOR_ARCHITECTURE
+        HasNPU = $false
+        IsCopilotPlusPc = $false
+        RecallInstalled = $false
+        CopilotInstalled = $false
+        AIPackagesCount = 0
+    }
+    
+    #check for NPU (Neural Processing Unit)
+    try {
+        $npu = Get-PnpDevice -Class 'System' -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'NPU|Neural|AI Accelerator|Hexagon' }
+        if ($npu) { $info.HasNPU = $true }
+        #additional NPU check via registry
+        $npuReg = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' -ErrorAction SilentlyContinue
+        if ($npuReg -and $npuReg.HardwareCompatibility -eq 1) { $info.HasNPU = $true }
+    } catch {}
+    
+    #check if Copilot+ PC
+    try {
+        $aiConfig = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' -ErrorAction SilentlyContinue
+        if ($aiConfig -and $aiConfig.MeetsAdditionalDriverRequirements -eq 1) {
+            $info.IsCopilotPlusPc = $true
+        }
+    } catch {}
+    
+    #check Recall installation status
+    try {
+        $recallFeature = Get-WindowsOptionalFeature -Online -FeatureName 'Recall' -ErrorAction SilentlyContinue
+        if ($recallFeature -and $recallFeature.State -ne 'DisabledWithPayloadRemoved') {
+            $info.RecallInstalled = $true
+        }
+    } catch {}
+    
+    #check Copilot packages
+    $copilotPackages = Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*Copilot*' -or $_.Name -like '*AIX*' -or $_.Name -like '*CoreAI*' }
+    if ($copilotPackages) {
+        $info.CopilotInstalled = $true
+        $info.AIPackagesCount = $copilotPackages.Count
+    }
+    
+    return $info
+}
+
+function Show-SystemReport {
+    <#
+    .SYNOPSIS
+    Displays a comprehensive system report before AI removal
+    #>
+    param([switch]$Detailed)
+    
+    $sysInfo = Get-SystemInfo
+    
+    Write-Host "`n========== SYSTEM ANALYSIS REPORT ==========" -ForegroundColor Cyan
+    Write-Host "OS: $($sysInfo.OSName) Build $($sysInfo.OSBuild)" -ForegroundColor White
+    Write-Host "Edition: $($sysInfo.Edition)" -ForegroundColor White
+    Write-Host "Architecture: $($sysInfo.Architecture)" -ForegroundColor White
+    Write-Host ""
+    
+    #NPU/Copilot+ PC Status
+    if ($sysInfo.HasNPU) {
+        Write-Host "[NPU DETECTED] " -NoNewline -ForegroundColor Yellow
+        Write-Host "This system has a Neural Processing Unit" -ForegroundColor White
+    }
+    if ($sysInfo.IsCopilotPlusPc) {
+        Write-Host "[COPILOT+ PC] " -NoNewline -ForegroundColor Yellow
+        Write-Host "This is a Copilot+ PC with enhanced AI capabilities" -ForegroundColor White
+    }
+    
+    #AI Components Status
+    Write-Host "`nAI Components Status:" -ForegroundColor Cyan
+    if ($sysInfo.RecallInstalled) {
+        Write-Host "  [!] Recall: " -NoNewline -ForegroundColor Red
+        Write-Host "INSTALLED" -ForegroundColor Red
+    } else {
+        Write-Host "  [OK] Recall: " -NoNewline -ForegroundColor Green
+        Write-Host "Not installed or removed" -ForegroundColor Green
+    }
+    
+    if ($sysInfo.CopilotInstalled) {
+        Write-Host "  [!] Copilot Packages: " -NoNewline -ForegroundColor Red
+        Write-Host "$($sysInfo.AIPackagesCount) package(s) found" -ForegroundColor Red
+    } else {
+        Write-Host "  [OK] Copilot Packages: " -NoNewline -ForegroundColor Green
+        Write-Host "None found" -ForegroundColor Green
+    }
+    
+    #Edition warnings
+    if ($sysInfo.Edition -eq 'Home' -or $sysInfo.Edition -like '*Home*') {
+        Write-Host "`n[WARNING] " -NoNewline -ForegroundColor Yellow
+        Write-Host "Home Edition detected - Some Group Policies may not apply" -ForegroundColor Yellow
+    }
+    
+    Write-Host "============================================`n" -ForegroundColor Cyan
+    
+    return $sysInfo
+}
+
+#Display system report on script start
+$Global:SystemInfo = Show-SystemReport
+
+#=====================================================================================
+
+function Export-AIConfiguration {
+    <#
+    .SYNOPSIS
+    Exports current AI configuration state for backup/restore purposes
+    .DESCRIPTION
+    Creates a JSON file with all current AI-related registry values, installed packages,
+    and system state for later restoration or auditing
+    #>
+    param(
+        [string]$ExportPath = "$env:USERPROFILE\RemoveWindowsAI\Backup\AIConfig_$(Get-Date -Format 'yyyyMMdd_HHmmss').json"
+    )
+    
+    $exportDir = Split-Path $ExportPath -Parent
+    if (!(Test-Path $exportDir)) {
+        New-Item $exportDir -ItemType Directory -Force | Out-Null
+    }
+    
+    Write-Status -msg "Exporting AI Configuration to [$ExportPath]"
+    
+    $config = @{
+        ExportDate = (Get-Date).ToString('o')
+        SystemInfo = @{
+            OSBuild = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
+            ComputerName = $env:COMPUTERNAME
+        }
+        RegistryKeys = @{
+            WindowsAI = @{}
+            WindowsCopilot = @{}
+            Edge = @{}
+            Paint = @{}
+        }
+        InstalledPackages = @()
+        ScheduledTasks = @()
+        Services = @()
+    }
+    
+    #Export WindowsAI policies
+    try {
+        $aiKeys = Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI' -ErrorAction SilentlyContinue
+        if ($aiKeys) {
+            $aiKeys.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | ForEach-Object {
+                $config.RegistryKeys.WindowsAI[$_.Name] = $_.Value
+            }
+        }
+    } catch {}
+    
+    #Export Copilot policies
+    try {
+        $copilotKeys = Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' -ErrorAction SilentlyContinue
+        if ($copilotKeys) {
+            $copilotKeys.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | ForEach-Object {
+                $config.RegistryKeys.WindowsCopilot[$_.Name] = $_.Value
+            }
+        }
+    } catch {}
+    
+    #Export Edge AI policies
+    try {
+        $edgeKeys = Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -ErrorAction SilentlyContinue
+        if ($edgeKeys) {
+            $aiEdgeKeys = @('CopilotPageContext', 'HubsSidebarEnabled', 'ComposeInlineEnabled', 'BuiltInAIAPIsEnabled', 'AIGenThemesEnabled')
+            $edgeKeys.PSObject.Properties | Where-Object { $_.Name -in $aiEdgeKeys } | ForEach-Object {
+                $config.RegistryKeys.Edge[$_.Name] = $_.Value
+            }
+        }
+    } catch {}
+    
+    #Export installed AI packages
+    $config.InstalledPackages = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | 
+        Where-Object { $_.Name -like '*Copilot*' -or $_.Name -like '*AIX*' -or $_.Name -like '*CoreAI*' -or $_.Name -like '*Recall*' } |
+        Select-Object Name, Version, PackageFullName)
+    
+    #Export AI scheduled tasks
+    try {
+        $config.ScheduledTasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue | 
+            Where-Object { $_.TaskPath -like '*WindowsAI*' -or $_.TaskPath -like '*Recall*' } |
+            Select-Object TaskName, TaskPath, State)
+    } catch {}
+    
+    #Export AI services
+    try {
+        $config.Services = @(Get-Service -ErrorAction SilentlyContinue | 
+            Where-Object { $_.Name -like '*AI*' -or $_.Name -like '*Copilot*' -or $_.Name -like 'WSAIFabricSvc' } |
+            Select-Object Name, Status, StartType)
+    } catch {}
+    
+    $config | ConvertTo-Json -Depth 10 | Set-Content $ExportPath -Force
+    Write-Status -msg "Configuration exported successfully"
+    
+    return $ExportPath
+}
+
+function Get-AIRemovalStatus {
+    <#
+    .SYNOPSIS
+    Checks current AI removal status and returns a comprehensive report
+    #>
+    $status = @{
+        RegistryDisabled = $true
+        PackagesRemoved = $true
+        RecallRemoved = $true
+        TasksRemoved = $true
+        FilesRemoved = $true
+        Details = @()
+    }
+    
+    #Check registry policies
+    $requiredPolicies = @{
+        'TurnOffWindowsCopilot' = 1
+        'DisableAIDataAnalysis' = 1
+        'AllowRecallEnablement' = 0
+    }
+    
+    foreach ($policy in $requiredPolicies.GetEnumerator()) {
+        try {
+            $value = Get-ItemPropertyValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI' -Name $policy.Key -ErrorAction SilentlyContinue
+            if ($value -ne $policy.Value) {
+                $status.RegistryDisabled = $false
+                $status.Details += "Policy $($policy.Key) not set correctly"
+            }
+        } catch {
+            $status.RegistryDisabled = $false
+            $status.Details += "Policy $($policy.Key) not found"
+        }
+    }
+    
+    #Check packages
+    $aiPackages = Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | 
+        Where-Object { $_.Name -like '*Copilot*' -or $_.Name -like '*AIX*' -or $_.Name -like '*CoreAI*' }
+    if ($aiPackages) {
+        $status.PackagesRemoved = $false
+        $status.Details += "Found $($aiPackages.Count) AI package(s) still installed"
+    }
+    
+    #Check Recall
+    try {
+        $recall = Get-WindowsOptionalFeature -Online -FeatureName 'Recall' -ErrorAction SilentlyContinue
+        if ($recall -and $recall.State -ne 'DisabledWithPayloadRemoved') {
+            $status.RecallRemoved = $false
+            $status.Details += "Recall feature still present (State: $($recall.State))"
+        }
+    } catch {}
+    
+    #Check scheduled tasks
+    try {
+        $aiTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | 
+            Where-Object { $_.TaskPath -like '*WindowsAI*' -or $_.TaskPath -like '*Recall*' }
+        if ($aiTasks) {
+            $status.TasksRemoved = $false
+            $status.Details += "Found $($aiTasks.Count) AI scheduled task(s)"
+        }
+    } catch {}
+    
+    #Check key files
+    $keyFiles = @(
+        "$env:windir\System32\Windows.AI.MachineLearning.dll",
+        "$env:windir\SystemApps\MicrosoftWindows.Client.AIX_cw5n1h2txyewy"
+    )
+    foreach ($file in $keyFiles) {
+        if (Test-Path $file) {
+            $status.FilesRemoved = $false
+            $status.Details += "AI file still exists: $file"
+        }
+    }
+    
+    #Overall status
+    $status.AllRemoved = $status.RegistryDisabled -and $status.PackagesRemoved -and $status.RecallRemoved -and $status.TasksRemoved -and $status.FilesRemoved
+    
+    return $status
+}
+
+function Block-AITelemetryHosts {
+    <#
+    .SYNOPSIS
+    Blocks AI and Copilot telemetry domains via the hosts file
+    .DESCRIPTION
+    Adds known Microsoft AI/Copilot telemetry endpoints to the hosts file to prevent
+    data collection even if some AI components remain active
+    #>
+    param([switch]$Remove)
+    
+    $hostsPath = "$env:windir\System32\drivers\etc\hosts"
+    $marker = "# RemoveWindowsAI - AI Telemetry Block"
+    $endMarker = "# End RemoveWindowsAI Block"
+    
+    #AI and Copilot related telemetry domains
+    $aiHosts = @(
+        'copilot.microsoft.com',
+        'www.bing.com/chat',
+        'sydney.bing.com',
+        'edgeservices.bing.com',
+        'copilot.cloud.microsoft',
+        'api.msn.com',
+        'assets.msn.com',
+        'c.msn.com',
+        'ntp.msn.com',
+        'srtb.msn.com',
+        'fd.api.iris.microsoft.com',
+        'odinvzc.azureedge.net',
+        'prod.odin.cloudapp.net',
+        'config.edge.skype.com',
+        'substrate.office.com',
+        'substrate-r.office.com',
+        'ecs.office.com',
+        'recall.ai.microsoft.com',
+        'api.recall.ai.microsoft.com',
+        'windowsai.microsoft.com',
+        'ai.microsoft.com',
+        'aiservices.microsoft.com',
+        'copilot-api.microsoft.com',
+        'edgeassetservice.azureedge.net'
+    )
+    
+    try {
+        $currentContent = Get-Content $hostsPath -Raw -ErrorAction Stop
+    } catch {
+        Write-Status -msg "Unable to read hosts file" -errorOutput $true
+        return
+    }
+    
+    if ($Remove -or $revert) {
+        Write-Status -msg "Removing AI telemetry blocks from hosts file..."
+        #Remove our block section
+        if ($currentContent -match $marker) {
+            $pattern = "$marker[\s\S]*?$endMarker"
+            $newContent = $currentContent -replace $pattern, ''
+            $newContent = $newContent -replace '(\r?\n){3,}', "`r`n`r`n" #clean up extra newlines
+            Set-Content $hostsPath -Value $newContent.Trim() -Force
+            Write-Status -msg "AI telemetry blocks removed"
+        }
+    } else {
+        Write-Status -msg "Adding AI telemetry blocks to hosts file..."
+        
+        #Check if already blocked
+        if ($currentContent -match $marker) {
+            Write-Status -msg "AI telemetry blocks already present, updating..."
+            $pattern = "$marker[\s\S]*?$endMarker"
+            $currentContent = $currentContent -replace $pattern, ''
+        }
+        
+        #Build hosts block
+        $hostBlock = "`r`n$marker`r`n"
+        $hostBlock += "# Added by RemoveWindowsAI script on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`r`n"
+        foreach ($host in $aiHosts) {
+            $hostBlock += "0.0.0.0 $host`r`n"
+        }
+        $hostBlock += "$endMarker`r`n"
+        
+        #Append to hosts file
+        $newContent = $currentContent.TrimEnd() + $hostBlock
+        
+        try {
+            Set-Content $hostsPath -Value $newContent -Force
+            Write-Status -msg "Added $($aiHosts.Count) AI telemetry blocks"
+        } catch {
+            Write-Status -msg "Failed to update hosts file - try running as TrustedInstaller" -errorOutput $true
+            #Try with Run-Trusted
+            $command = @"
+`$content = @'
+$hostBlock
+'@
+Add-Content '$hostsPath' -Value `$content -Force
+"@
+            Run-Trusted -command $command -psversion $psversion
+        }
+    }
+    
+    #Flush DNS cache
+    ipconfig /flushdns *>$null
+}
+
+function Disable-WindowsAIServices {
+    <#
+    .SYNOPSIS
+    Disables all Windows AI related services
+    #>
+    $aiServices = @(
+        'WSAIFabricSvc',      # Windows AI Fabric Service
+        'WinAIService',       # Windows AI Service (if exists)
+        'CopilotService',     # Copilot Service (if exists)  
+        'AIAgentService'      # AI Agent Service (if exists)
+    )
+    
+    foreach ($svc in $aiServices) {
+        try {
+            $service = Get-Service -Name $svc -ErrorAction SilentlyContinue
+            if ($service) {
+                if ($revert) {
+                    Write-Status -msg "Enabling service: $svc"
+                    Set-Service -Name $svc -StartupType Automatic -ErrorAction SilentlyContinue
+                    Start-Service -Name $svc -ErrorAction SilentlyContinue
+                } else {
+                    Write-Status -msg "Disabling service: $svc"
+                    Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
+                    Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
+                }
+            }
+        } catch {
+            #Service doesn't exist or can't be modified
+        }
+    }
+}
+
+#=====================================================================================
 
 function Add-LogInfo {
     param(
@@ -237,10 +660,25 @@ function Disable-Registry-Keys {
         Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableAgentConnectors' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableAgentWorkspaces' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableRemoteAgentConnectors' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+        #new official Microsoft policies (KB5055627+)
+        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'AllowRecallExport' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableRecallDataProviders' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'SetMaximumStorageSpaceForRecallSnapshots' /t REG_DWORD /d @('0', '153600')[$revert] /f *>$null
+        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'SetMaximumStorageDurationForRecallSnapshots' /t REG_DWORD /d @('0', '90')[$revert] /f *>$null
+        #deny app list for recall - block common sensitive apps
+        if (!$revert) {
+            Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'SetDenyAppListForRecall' /t REG_SZ /d 'KeePass.exe;1Password.exe;Bitwarden.exe;LastPass.exe;msedge.exe;chrome.exe;firefox.exe;brave.exe;Microsoft.Windows.SecHealthUI_8wekyb3d8bbwe!SecHealthUI' /f *>$null
+            Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'SetDenyUriListForRecall' /t REG_SZ /d 'https://banking;https://bank;https://paypal.com;https://login;https://signin;https://account' /f *>$null
+        } else {
+            Reg.exe delete "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'SetDenyAppListForRecall' /f *>$null
+            Reg.exe delete "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'SetDenyUriListForRecall' /f *>$null
+        }
         Reg.exe add "$hive\SOFTWARE\Microsoft\Windows\Shell\Copilot\BingChat" /v 'IsUserEligible' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Microsoft\Windows\Shell\Copilot" /v 'IsCopilotAvailable' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Microsoft\Windows\Shell\Copilot" /v 'CopilotDisabledReason' /t REG_SZ /d @('FeatureIsDisabled', ' ')[$revert] /f *>$null
     }
+    #disable copilot hardware key
+    Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\CopilotKey' /v 'SetCopilotHardwareKey' /t REG_SZ /d @('', 'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub')[$revert] /f *>$null
     Reg.exe delete 'HKCU\Software\Microsoft\Windows\Shell\Copilot' /v 'CopilotLogonTelemetryTime' /f *>$null
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone\Microsoft.Copilot_8wekyb3d8bbwe' /v 'Value' /t REG_SZ /d @('Deny', 'Prompt')[$revert] /f *>$null
     Reg.exe add 'HKCU\Software\Microsoft\Speech_OneCore\Settings\VoiceActivation\UserPreferenceForAllApps' /v 'AgentActivationEnabled' /t REG_DWORD /d @('0', '1')[$revert]  /f *>$null
@@ -265,6 +703,24 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'AIGenThemesEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'DevToolsGenAiSettings' /t REG_DWORD /d @('2', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'ShareBrowsingHistoryWithCopilotSearchAllowed' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    #new Edge AI policies (2024-2025)
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeScribbleEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeAutoFillComposeEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeAutoRewriteEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeDropEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeWalletCheckoutEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeWorkspacesEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'ShowMicrosoftRewards' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeFollowEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeCollectionsEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeShoppingAssistantEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'PersonalizationReportingEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'WebWidgetAllowed' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'RelatedMatchesCloudServiceEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'EdgeAssetDeliveryServiceEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'PinBrowserEssentialsToolbarButton' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'LinkedAccountEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'TyposquattingCheckerEnabled' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     #disable edge copilot mode 
     # "enabled_labs_experiments":["edge-copilot-mode@2"]
     # view flags at edge://flags
@@ -1936,9 +2392,120 @@ Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCac
     Start-Sleep 1
 }
 
+function Remove-AllAI-Tasks {
+    <#
+    .SYNOPSIS
+    Removes ALL AI-related scheduled tasks, not just Recall
+    #>
+    Write-Status -msg 'Removing ALL AI Scheduled Tasks...'
+    
+    #AI task patterns to search for
+    $aiTaskPatterns = @(
+        '*Recall*',
+        '*WindowsAI*',
+        '*Copilot*',
+        '*AIX*',
+        '*CoreAI*',
+        '*MachineLearning*'
+    )
+    
+    $code = @'
+$aiTaskPatterns = @('*Recall*', '*WindowsAI*', '*Copilot*', '*AIX*', '*CoreAI*', '*MachineLearning*')
+$allTasks = Get-ScheduledTask -ErrorAction SilentlyContinue
+foreach ($pattern in $aiTaskPatterns) {
+    $tasks = $allTasks | Where-Object { $_.TaskName -like $pattern -or $_.TaskPath -like $pattern }
+    foreach ($task in $tasks) {
+        try {
+            Disable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false -ErrorAction SilentlyContinue
+        } catch {}
+    }
+}
+
+#remove task files
+$taskPaths = @(
+    "$env:Systemroot\System32\Tasks\Microsoft\Windows\WindowsAI",
+    "$env:Systemroot\System32\Tasks\Microsoft\Windows\Recall",
+    "$env:Systemroot\System32\Tasks\Microsoft\Windows\AI"
+)
+foreach ($path in $taskPaths) {
+    if (Test-Path $path) {
+        Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+#clean registry task cache
+$registryPaths = @(
+    "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\WindowsAI",
+    "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Windows\Recall"
+)
+foreach ($regPath in $registryPaths) {
+    if (Test-Path $regPath) {
+        #get task IDs first
+        $ids = Get-ChildItem $regPath -Recurse -ErrorAction SilentlyContinue | 
+            ForEach-Object { 
+                try { Get-ItemPropertyValue $_.PSPath -Name 'Id' -ErrorAction SilentlyContinue } catch {} 
+            } | Where-Object { $_ }
+        
+        #remove from Tasks cache
+        foreach ($id in $ids) {
+            Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\$id" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        #remove tree entry
+        Remove-Item $regPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+'@
+    
+    $subScript = "$env:TEMP\RemoveAllAITasks.ps1"
+    New-Item $subScript -Force | Out-Null
+    Set-Content $subScript -Value $code -Force
+    
+    $command = "&$subScript"
+    Run-Trusted -command $command -psversion $psversion
+    Start-Sleep 1
+    
+    Write-Status -msg 'AI scheduled tasks cleanup completed'
+}
+
+function Show-FinalReport {
+    <#
+    .SYNOPSIS
+    Shows a final report after all operations are completed
+    #>
+    Write-Host "`n========== REMOVAL SUMMARY REPORT ==========" -ForegroundColor Cyan
+    
+    $status = Get-AIRemovalStatus
+    
+    if ($status.AllRemoved) {
+        Write-Host "[SUCCESS] " -NoNewline -ForegroundColor Green
+        Write-Host "All AI components have been successfully removed/disabled!" -ForegroundColor Green
+    } else {
+        Write-Host "[PARTIAL] " -NoNewline -ForegroundColor Yellow
+        Write-Host "Some AI components may still be present:" -ForegroundColor Yellow
+        foreach ($detail in $status.Details) {
+            Write-Host "  - $detail" -ForegroundColor Yellow
+        }
+    }
+    
+    Write-Host "`nComponent Status:" -ForegroundColor Cyan
+    Write-Host "  Registry Policies: $(if($status.RegistryDisabled){'[OK]'}else{'[!]'})" -ForegroundColor $(if($status.RegistryDisabled){'Green'}else{'Red'})
+    Write-Host "  AppX Packages: $(if($status.PackagesRemoved){'[OK]'}else{'[!]'})" -ForegroundColor $(if($status.PackagesRemoved){'Green'}else{'Red'})
+    Write-Host "  Recall Feature: $(if($status.RecallRemoved){'[OK]'}else{'[!]'})" -ForegroundColor $(if($status.RecallRemoved){'Green'}else{'Red'})
+    Write-Host "  Scheduled Tasks: $(if($status.TasksRemoved){'[OK]'}else{'[!]'})" -ForegroundColor $(if($status.TasksRemoved){'Green'}else{'Red'})
+    Write-Host "  AI Files: $(if($status.FilesRemoved){'[OK]'}else{'[!]'})" -ForegroundColor $(if($status.FilesRemoved){'Green'}else{'Red'})
+    
+    Write-Host "`n[TIP] " -NoNewline -ForegroundColor Cyan
+    Write-Host "A system restart is recommended to complete all changes." -ForegroundColor White
+    Write-Host "============================================`n" -ForegroundColor Cyan
+}
 
 if ($nonInteractive) {
     if ($AllOptions) {
+        #Export config before making changes (if backup mode)
+        if ($backup) { Export-AIConfiguration }
+        
         Disable-Registry-Keys 
         Install-NOAIPackage
         Disable-Copilot-Policies 
@@ -1948,7 +2515,12 @@ if ($nonInteractive) {
         Remove-AI-Files 
         Hide-AI-Components 
         Disable-Notepad-Rewrite 
-        Remove-Recall-Tasks 
+        Remove-AllAI-Tasks
+        Block-AITelemetryHosts
+        Disable-WindowsAIServices
+        
+        #Show final report
+        Show-FinalReport
     }
     else {
         #loop through options array and run desired tweaks
@@ -1962,7 +2534,13 @@ if ($nonInteractive) {
             'RemoveAIFiles' { Remove-AI-Files }
             'HideAIComponents' { Hide-AI-Components }
             'DisableRewrite' { Disable-Notepad-Rewrite }
-            'RemoveRecallTasks' { Remove-Recall-Tasks }
+            'RemoveRecallTasks' { Remove-AllAI-Tasks }
+            'BlockTelemetry' { Block-AITelemetryHosts }
+            'ExportConfig' { Export-AIConfiguration }
+            'ShowStatus' { 
+                $status = Get-AIRemovalStatus
+                Show-FinalReport 
+            }
         }
     }
 }
@@ -1973,7 +2551,7 @@ else {
     #===============================================================================
 
     $functionDescriptions = @{
-        'Disable-Registry-Keys'          = 'Disables Copilot and Recall through registry modifications, including Windows Search integration and Edge Copilot features. Also disables AI image creator in Paint and various AI-related privacy settings.'
+        'Disable-Registry-Keys'          = 'Disables Copilot and Recall through registry modifications, including Windows Search integration and Edge Copilot features. Also disables AI image creator in Paint and various AI-related privacy settings. NOW INCLUDES: AllowRecallExport, SetDenyAppListForRecall, SetDenyUriListForRecall policies and Copilot hardware key remapping.'
         'Prevent-AI-Package-Reinstall'   = 'Installs a custom Windows Update Package to prevent Windows Update and DISM from reinstalling AI packages.'
         'Disable-Copilot-Policies'       = 'Disables Copilot policies in the Windows integrated services region policy JSON file by setting their default state to disabled.'
         'Remove-AI-Appx-Packages'        = 'Removes AI-related AppX packages including Copilot, AIX, CoreAI, and various WindowsWorkload AI components using advanced removal techniques.'
@@ -1982,13 +2560,15 @@ else {
         'Remove-AI-Files'                = 'Removes AI-related files from SystemApps, WindowsApps, and other system directories. Also removes machine learning DLLs and Copilot installers.'
         'Hide-AI-Components'             = 'Hides AI components in Windows Settings by modifying the SettingsPageVisibility policy to prevent user access to AI settings.'
         'Disable-Notepad-Rewrite'        = 'Disables the AI Rewrite feature in Windows Notepad through registry modifications and group policy settings.'
-        'Remove-Recall-Tasks'            = 'Removes Recall-related scheduled tasks from the Windows Task Scheduler to prevent AI data collection processes from running.'
+        'Remove-Recall-Tasks'            = 'Removes ALL AI-related scheduled tasks from the Windows Task Scheduler including Recall, WindowsAI, Copilot, and MachineLearning tasks.'
+        'Block-AI-Telemetry'             = 'Blocks AI and Copilot telemetry domains via the hosts file to prevent data collection even if some AI components remain active. Includes 20+ Microsoft AI endpoints.'
+        'Disable-AI-Services'            = 'Disables all Windows AI related services including WSAIFabricSvc (Windows AI Fabric Service) and other AI agent services.'
     }
 
     $window = New-Object System.Windows.Window
     $window.Title = 'Remove Windows AI - by @zoicware'
     $window.Width = 600
-    $window.Height = 700
+    $window.Height = 750
     $window.WindowStartupLocation = 'CenterScreen'
     $window.ResizeMode = 'NoResize'
 
@@ -2048,7 +2628,9 @@ else {
         'Remove-AI-Files'               
         'Hide-AI-Components'            
         'Disable-Notepad-Rewrite'       
-        'Remove-Recall-Tasks'           
+        'Remove-Recall-Tasks'
+        'Block-AI-Telemetry'
+        'Disable-AI-Services'           
     )
 
     foreach ($func in $functions) {
@@ -2544,7 +3126,9 @@ else {
                         'Remove-AI-Files' { Remove-AI-Files }
                         'Hide-AI-Components' { Hide-AI-Components }
                         'Disable-Notepad-Rewrite' { Disable-Notepad-Rewrite }
-                        'Remove-Recall-Tasks' { Remove-Recall-Tasks }
+                        'Remove-Recall-Tasks' { Remove-AllAI-Tasks }
+                        'Block-AI-Telemetry' { Block-AITelemetryHosts }
+                        'Disable-AI-Services' { Disable-WindowsAIServices }
                     }
             
                     Start-Sleep -Milliseconds 500
