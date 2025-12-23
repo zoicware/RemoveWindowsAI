@@ -1154,6 +1154,7 @@ foreach ($choice in $aipackages) {
                 $Global:executionPolicyUser = $false
                 $Global:executionPolicyMachine = $false
                 $Global:executionPolicyWow64 = $false
+                $Global:executionPolicyUserPol = $false
             }
             catch {
                 try {
@@ -1162,6 +1163,7 @@ foreach ($choice in $aipackages) {
                     $Global:executionPolicyUser = $true
                     $Global:executionPolicyMachine = $false
                     $Global:executionPolicyWow64 = $false
+                    $Global:executionPolicyUserPol = $false
                 }
                 catch {
                     try {
@@ -1170,14 +1172,28 @@ foreach ($choice in $aipackages) {
                         $Global:executionPolicyUser = $false
                         $Global:executionPolicyMachine = $true
                         $Global:executionPolicyWow64 = $false
-
+                        $Global:executionPolicyUserPol = $false
                     }
                     catch {
-                        $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' -Name 'ExecutionPolicy'
-                        Reg.exe add 'HKLM\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
-                        $Global:executionPolicyUser = $false
-                        $Global:executionPolicyMachine = $false
-                        $Global:executionPolicyWow64 = $true
+                        try {
+                            $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' -Name 'ExecutionPolicy' -ErrorAction Stop
+                            Reg.exe add 'HKLM\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
+                            $Global:executionPolicyUser = $false
+                            $Global:executionPolicyMachine = $false
+                            $Global:executionPolicyWow64 = $true
+                            $Global:executionPolicyUserPol = $false
+
+                        }
+                        catch {
+                            $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\PowerShell' -Name 'ExecutionPolicy' 
+                            Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'EnableScripts' /t REG_DWORD /d '1' /f >$null
+                            Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
+                            $Global:executionPolicyUser = $false
+                            $Global:executionPolicyMachine = $false
+                            $Global:executionPolicyWow64 = $false
+                            $Global:executionPolicyUserPol = $true
+                        }
+                        
 
                     }
                     
@@ -2592,6 +2608,9 @@ else {
                         elseif ($Global:executionPolicyWow64) {
                             Reg.exe add 'HKLM\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
                         }
+                        elseif ($Global:executionPolicyUserPol) {
+                            Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
+                        }
                         else {
                             Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
                         }
@@ -2646,6 +2665,9 @@ if ($ogExecutionPolicy) {
     }
     elseif ($Global:executionPolicyWow64) {
         Reg.exe add 'HKLM\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
+    }
+    elseif ($Global:executionPolicyUserPol) {
+        Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
     }
     else {
         Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
