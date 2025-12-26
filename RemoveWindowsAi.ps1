@@ -118,10 +118,14 @@ function Run-Trusted([String]$command, $psversion) {
 function Write-Status {
     param(
         [string]$msg,
-        [bool]$errorOutput = $false
+        [switch]$errorOutput,
+        [switch]$warningOutput
     )
     if ($errorOutput) {
-        Write-Host "[ ! ] $msg" -ForegroundColor Red
+        Write-Host "[ ! ERROR ] $msg" -ForegroundColor Red
+    }
+    elseif ($warningOutput) {
+        Write-Host "[ * WARNING ] $msg" -ForegroundColor Yellow
     }
     else {
         Write-Host "[ + ] $msg" -ForegroundColor Cyan
@@ -279,8 +283,8 @@ function Disable-Registry-Keys {
             $fail = $false
         }
         catch {
-            Write-Status -msg 'Unable to set Edge flags to disable Copilot due to a different langauge being used' -errorOutput $true
-            Write-Status -msg 'You can manually disable the Copilot flags at [edge://flags] in the browser' -errorOutput $true
+            Write-Status -msg 'Unable to set Edge flags to disable Copilot due to a different langauge being used' -errorOutput 
+            Write-Status -msg 'You can manually disable the Copilot flags at [edge://flags] in the browser' -errorOutput 
             $fail = $true
         }
         
@@ -311,8 +315,8 @@ function Disable-Registry-Keys {
                 Set-Content $config -Value $newContent -Encoding UTF8 -Force
             }
             catch {
-                Write-Status -msg 'Edge Browser has never been opened on this machine unable to set flags...' -errorOutput $true
-                Write-Status -msg 'Open Edge once and run this tweak again' -errorOutput $true
+                Write-Status -msg 'Edge Browser has never been opened on this machine unable to set flags...' -errorOutput 
+                Write-Status -msg 'Open Edge once and run this tweak again' -errorOutput 
             }
         }
         
@@ -396,7 +400,7 @@ function Disable-Registry-Keys {
         $hiveloaded = $true
     }
     catch {
-        Write-Status -msg 'Unable to Load Default User Hive...' -errorOutput $true
+        Write-Status -msg 'Unable to Load Default User Hive...' -errorOutput 
         $hiveloaded = $false
     }
 
@@ -466,7 +470,7 @@ function Disable-Registry-Keys {
             sc.exe create WSAIFabricSvc binPath= "$env:windir\System32\svchost.exe -k WSAIFabricSvcGroup -p" *>$null
         }
         else {
-            Write-Status -msg "Path Not Found: $backupPath\$backupFileWSAI" -errorOutput $true
+            Write-Status -msg "Path Not Found: $backupPath\$backupFileWSAI" -errorOutput 
         }
         
     }
@@ -534,7 +538,7 @@ function Disable-Registry-Keys {
             sc.exe create AarSvc binPath= "$env:windir\system32\svchost.exe -k AarSvcGroup -p" *>$null
         }
         else {
-            Write-Status -msg "Path Not Found: $backupPath\$backupFileAAR" -errorOutput $true
+            Write-Status -msg "Path Not Found: $backupPath\$backupFileAAR" -errorOutput 
         }
     }
   
@@ -547,7 +551,7 @@ function Disable-Registry-Keys {
             Reg.exe import "$backupPath\HKCU_Copilot.reg" *>$null
         }
         else {
-            Write-Status -msg "Unable to Find HKCR_Copilot.reg or HKCU_Copilot.reg in [$backupPath]" -errorOutput $true
+            Write-Status -msg "Unable to Find HKCR_Copilot.reg or HKCU_Copilot.reg in [$backupPath]" -errorOutput 
         }
     }
     else {
@@ -583,7 +587,7 @@ function Disable-Registry-Keys {
             Move-Item "$backupPath\VoiceAccess.lnk" -Destination $startMenu -Force | Out-Null
         }
         else {
-            Write-Status -msg 'Voice Access Backup NOT Found!' -errorOutput $true
+            Write-Status -msg 'Voice Access Backup NOT Found!' -errorOutput 
         }
     }
     else {
@@ -684,7 +688,7 @@ function Install-NOAIPackage {
                 Invoke-WebRequest -Uri "https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -OutFile "$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -UseBasicParsing -ErrorAction Stop
             }
             catch {
-                Write-Status -msg "Unable to Download Package at: https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -errorOutput $true
+                Write-Status -msg "Unable to Download Package at: https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -errorOutput
                 return
             }
 
@@ -711,7 +715,7 @@ function Install-NOAIPackage {
             
         }
         else {
-            Write-Status 'Unable to Find Update Package...' -errorOutput $true
+            Write-Status 'Unable to Find Update Package...' -errorOutput 
         }
         
     }
@@ -756,7 +760,7 @@ function Disable-Copilot-Policies {
             Write-Status -msg "$total CoPilot Policies $(@('Disabled','Enabled')[$revert])"
         }
         catch {
-            Write-Status -msg 'CoPilot Not Found in IntegratedServicesRegionPolicySet' -errorOutput $true
+            Write-Status -msg 'CoPilot Not Found in IntegratedServicesRegionPolicySet' -errorOutput 
         }
 
     
@@ -976,7 +980,7 @@ function Remove-AI-Appx-Packages {
             Remove-Item "$appxBackup\*" -Recurse -Force -ErrorAction SilentlyContinue
         }
         else {
-            Write-Status -msg 'Unable to Find AppxBackup in User Directory!' -errorOutput $true
+            Write-Status -msg 'Unable to Find AppxBackup in User Directory!' -errorOutput 
         }
 
     }
@@ -1232,7 +1236,7 @@ foreach ($choice in $aipackages) {
 
         if ($EnableLogging) {
             if ($attempts -ge 10) {
-                Write-Status -msg 'Packages Removal Failed...' -errorOutput $true
+                Write-Status -msg 'Packages Removal Failed...' -errorOutput 
                 $Global:logInfo.Line = 'Removing Appx Packages'
                 $Global:logInfo.Result = "Removal Failed, Reached Max Attempts (10)... Leftover Packages: $packages"
                 Add-LogInfo -logPath $logPath -info $Global:logInfo
@@ -1246,7 +1250,7 @@ foreach ($choice in $aipackages) {
         }
         else {
             if ($attempts -ge 10) {
-                Write-Status -msg 'Packages Removal Failed...' -errorOutput $true
+                Write-Status -msg 'Packages Removal Failed...' -errorOutput 
                 Write-Status -msg 'Use the Enable Logging Switch to Get More Info...'
             }
             else {
@@ -1395,7 +1399,7 @@ function Remove-AI-Files {
             Write-Status -msg 'Files Restored... You May Need to Repair the Apps Using the Microsoft Store'
         }
         else {
-            Write-Status -msg 'Unable to Find Backup Files!' -errorOutput $true
+            Write-Status -msg 'Unable to Find Backup Files!' -errorOutput 
         }
        
     }
@@ -1423,6 +1427,7 @@ function Remove-AI-Files {
         )
 
         Write-Status -msg 'Removing Appx Package Files...'
+        Write-Status -msg 'This could take a while on some systems, please be patient!' -warningOutput
         #-----------------------------------------------------------------------remove files
         $appsPath = "$env:SystemRoot\SystemApps"
         if (!(Test-Path $appsPath)) {
@@ -1803,6 +1808,7 @@ function Remove-AI-Files {
         
 
         Write-Status -msg 'Removing AI From Component Store (WinSxS)...'
+        Write-Status -msg 'This could take a while on some systems, please be patient!' -warningOutput
         #additional dirs and reg keys
         $aiKeyWords = @(
             'AIX',
