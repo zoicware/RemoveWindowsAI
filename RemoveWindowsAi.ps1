@@ -712,6 +712,14 @@ function Install-NOAIPackage {
             catch {
                 dism.exe /Online /remove-package /PackageName:$($package.PackageName) /NoRestart
             }
+            #remove reg install location 
+            $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+            Get-ChildItem $regPath | ForEach-Object {
+                $value = try { Get-ItemProperty "registry::$($_.Name)" -ErrorAction Stop } catch { $null }
+                if ($value -and $value.PSPath -like '*zoicware*') {
+                    Remove-Item -Path $value.PSPath -Recurse -Force
+                }
+            }
             
         }
         else {
