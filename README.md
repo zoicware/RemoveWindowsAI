@@ -39,8 +39,8 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  - **Remove Recall Tasks**
    - Forceably removes all instances of Recall's scheduled tasks  
  
-#### Manual AI Disablement
-- Unfourtently, not all features and settings can be disabled via a script. This guide will show additional AI features to disable.
+#### Manual AI Disabling
+- Unfortunately, not all features and settings can be disabled via a script. This guide will show additional AI features to disable.
 > **[Disable Other AI Features](https://github.com/zoicware/RemoveWindowsAI/blob/main/OtherAIFeatures.md)**
   
 ### Read the Script Docs Here
@@ -159,6 +159,7 @@ If you would like to support my work consider donating :)
 
 ### YT Guide
 #### [How to Remove ALL Windows AI Features](https://youtu.be/j5_eEBWGHFw)
+
 
 
 
