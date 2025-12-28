@@ -2278,49 +2278,119 @@ else {
     $toggleGrid = New-Object System.Windows.Controls.Grid
     [System.Windows.Controls.Grid]::SetRow($toggleGrid, 2)  
     $toggleGrid.Margin = '20,10,55,15'
-            
+        
     $row1 = New-Object System.Windows.Controls.RowDefinition
     $row1.Height = [System.Windows.GridLength]::Auto
     $row2 = New-Object System.Windows.Controls.RowDefinition
     $row2.Height = [System.Windows.GridLength]::Auto
     $toggleGrid.RowDefinitions.Add($row1) | Out-Null
     $toggleGrid.RowDefinitions.Add($row2) | Out-Null
-            
+        
     $mainGrid.Children.Add($toggleGrid) | Out-Null
-            
-    $togglePanel1 = New-Object System.Windows.Controls.StackPanel
-    $togglePanel1.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+
+    $togglePanel1 = New-Object System.Windows.Controls.DockPanel
     $togglePanel1.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
     $togglePanel1.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $togglePanel1.Margin = New-Object System.Windows.Thickness(0, 0, 0, 10) 
+    $togglePanel1.LastChildFill = $false
     [System.Windows.Controls.Grid]::SetRow($togglePanel1, 0)
-            
+        
     $toggleLabel1 = New-Object System.Windows.Controls.TextBlock
     $toggleLabel1.Text = 'Revert Mode:'
     $toggleLabel1.Foreground = [System.Windows.Media.Brushes]::White
     $toggleLabel1.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $toggleLabel1.Margin = New-Object System.Windows.Thickness(0, 0, 10, 0)
+    [System.Windows.Controls.DockPanel]::SetDock($toggleLabel1, 'Left')
     $togglePanel1.Children.Add($toggleLabel1) | Out-Null
-            
+        
     $revertModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel1 -IsChecked $revert
+    [System.Windows.Controls.DockPanel]::SetDock($revertModeToggle, 'Left')
+
+    $revertInfoButton = New-Object System.Windows.Controls.Button
+    $revertInfoButton.Content = '?'
+    $revertInfoButton.Width = 25
+    $revertInfoButton.Height = 25
+    $revertInfoButton.FontSize = 12
+    $revertInfoButton.FontWeight = 'Bold'
+    $revertInfoButton.Background = [System.Windows.Media.Brushes]::DarkBlue
+    $revertInfoButton.Foreground = [System.Windows.Media.Brushes]::White
+    $revertInfoButton.BorderBrush = [System.Windows.Media.Brushes]::Transparent
+    $revertInfoButton.BorderThickness = 0
+    $revertInfoButton.VerticalAlignment = 'Center'
+    $revertInfoButton.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0)
+    $revertInfoButton.Cursor = 'Hand'
+    [System.Windows.Controls.DockPanel]::SetDock($revertInfoButton, 'Right')
+
+    $revertInfoTemplate = @'
+<ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="Button">
+    <Border Background="{TemplateBinding Background}" 
+            BorderBrush="{TemplateBinding BorderBrush}" 
+            BorderThickness="{TemplateBinding BorderThickness}" 
+            CornerRadius="12">
+        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+</ControlTemplate>
+'@
+    $revertInfoButton.Template = [System.Windows.Markup.XamlReader]::Parse($revertInfoTemplate)
+    $revertInfoButton.Add_Click({
+            $description = 'Revert Mode will undo changes made by this tool, restoring AI features and settings to their original state. Selected options above will be reverted/enabled when this mode is selected.'
+            [System.Windows.MessageBox]::Show($description, 'Revert Mode', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        })
+
+    $togglePanel1.Children.Add($revertInfoButton) | Out-Null
     $toggleGrid.Children.Add($togglePanel1) | Out-Null
-            
-    $togglePanel2 = New-Object System.Windows.Controls.StackPanel
-    $togglePanel2.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+
+    $togglePanel2 = New-Object System.Windows.Controls.DockPanel
     $togglePanel2.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
     $togglePanel2.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    $togglePanel2.LastChildFill = $false
     [System.Windows.Controls.Grid]::SetRow($togglePanel2, 1)
-            
+        
     $toggleLabel2 = New-Object System.Windows.Controls.TextBlock
     $toggleLabel2.Text = 'Backup Mode:'
     $toggleLabel2.Foreground = [System.Windows.Media.Brushes]::White
     $toggleLabel2.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $toggleLabel2.Margin = New-Object System.Windows.Thickness(0, 0, 10, 0)
+    [System.Windows.Controls.DockPanel]::SetDock($toggleLabel2, 'Left')
     $togglePanel2.Children.Add($toggleLabel2) | Out-Null
-            
-    $backupModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel2 -IsChecked $backup
-    $toggleGrid.Children.Add($togglePanel2) | Out-Null
         
+    $backupModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel2 -IsChecked $backup
+    [System.Windows.Controls.DockPanel]::SetDock($backupModeToggle, 'Left')
+
+    $backupInfoButton = New-Object System.Windows.Controls.Button
+    $backupInfoButton.Content = '?'
+    $backupInfoButton.Width = 25
+    $backupInfoButton.Height = 25
+    $backupInfoButton.FontSize = 12
+    $backupInfoButton.FontWeight = 'Bold'
+    $backupInfoButton.Background = [System.Windows.Media.Brushes]::DarkBlue
+    $backupInfoButton.Foreground = [System.Windows.Media.Brushes]::White
+    $backupInfoButton.BorderBrush = [System.Windows.Media.Brushes]::Transparent
+    $backupInfoButton.BorderThickness = 0
+    $backupInfoButton.VerticalAlignment = 'Center'
+    $backupInfoButton.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0)
+    $backupInfoButton.Cursor = 'Hand'
+    [System.Windows.Controls.DockPanel]::SetDock($backupInfoButton, 'Right')
+
+    $backupInfoTemplate = @'
+<ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="Button">
+    <Border Background="{TemplateBinding Background}" 
+            BorderBrush="{TemplateBinding BorderBrush}" 
+            BorderThickness="{TemplateBinding BorderThickness}" 
+            CornerRadius="12">
+        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+</ControlTemplate>
+'@
+    $backupInfoButton.Template = [System.Windows.Markup.XamlReader]::Parse($backupInfoTemplate)
+    $backupInfoButton.Add_Click({
+            $description = 'Backup Mode keeps necessary files in your User directory allowing revert mode to work properly, use this option while removing AI if you would like to fully revert the removal process.'
+            [System.Windows.MessageBox]::Show($description, 'Backup Mode', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+        })
+
+    $togglePanel2.Children.Add($backupInfoButton) | Out-Null
+    $toggleGrid.Children.Add($togglePanel2) | Out-Null
+    
     $backupModeToggle.Add_Checked({ 
             $Global:backup = 1
         }) | Out-Null
@@ -2332,10 +2402,10 @@ else {
     $revertModeToggle.Add_Checked({ 
             $Global:revert = 1 
         }) | Out-Null
+
     $revertModeToggle.Add_Unchecked({ 
             $Global:revert = 0 
         }) | Out-Null
-
    
     $bottomGrid = New-Object System.Windows.Controls.Grid
     [System.Windows.Controls.Grid]::SetRow($bottomGrid, 3)
