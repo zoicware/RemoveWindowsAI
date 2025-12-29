@@ -2390,9 +2390,10 @@ else {
 
     $togglePanel2.Children.Add($backupInfoButton) | Out-Null
     $toggleGrid.Children.Add($togglePanel2) | Out-Null
-    
+    # ensure that backup mode and revert mode arent both selected at the same time (cant believe i have to do this....)
     $backupModeToggle.Add_Checked({ 
             $Global:backup = 1
+            $revertModeToggle.IsChecked = $false
         }) | Out-Null
 
     $backupModeToggle.Add_Unchecked({ 
@@ -2401,6 +2402,7 @@ else {
 
     $revertModeToggle.Add_Checked({ 
             $Global:revert = 1 
+            $backupModeToggle.IsChecked = $false
         }) | Out-Null
 
     $revertModeToggle.Add_Unchecked({ 
