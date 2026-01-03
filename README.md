@@ -37,7 +37,7 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
    - This will hide the settings page `AI Components` 
  - **Disable Rewrite AI Feature in Notepad**
  - **Remove Recall Tasks**
-   - Forceably removes all instances of Recall's scheduled tasks  
+   - Forcibly removes all instances of Recall's scheduled tasks  
  
 #### Manual AI Disabling
 - Unfortunately, not all features and settings can be disabled via a script. This guide will show additional AI features to disable.
@@ -159,6 +159,7 @@ If you would like to support my work consider donating :)
 
 ### YT Guide
 #### [How to Remove ALL Windows AI Features](https://youtu.be/j5_eEBWGHFw)
+
 
 
 
