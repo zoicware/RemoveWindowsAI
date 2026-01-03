@@ -4,9 +4,9 @@
 
 - The script is created for any version of Windows 10 and Windows 11, Latest Stable Builds
 - For best results use a Pro, Enterprise, Server, or Education version. I can not guarentee 100% removal on Home versions
-  - If you are on a Home version and want to convert to pro I recommend using massgrave: https://github.com/massgravel/Microsoft-Activation-Scripts
+  - If you are on a Home version and want to convert to Pro I recommend using massgrave: https://github.com/massgravel/Microsoft-Activation-Scripts
 > [!NOTE]
-> The script will work on Insider builds however, any new ai features added to insider builds will not be added to the script till they are released in the latest stable build
+> The script will work on Insider builds however, any new AI features added to Insider builds will not be added to the script till they are released in the latest stable build
 >
 
 ---
@@ -29,7 +29,7 @@
 - Method from Atlas and Revi OS as they make use of these
 
 #### Disable Copilot In IntegratedServicesRegionPolicySet
-- This json file contains rules for deciding weither or not certain apps and settings are enabled based on your region
+- This JSON file contains rules for deciding weither or not certain apps and settings are enabled based on your region
   - This is mainly used for the EEA [European Economic Area]
 - The script finds all policies related to Copilot and sets the default state to disabled 
 
