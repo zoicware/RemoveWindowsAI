@@ -3,7 +3,7 @@
 - the following features cannot be disabled or removed via a script (unless further developments prove otherwise)
 
 > [!NOTE]
-> Some of these are Copilot+ pc features and can possibly be disabled via the script however, I do not have one of these systems to test with
+> Some of these are Copilot+ PC features and can possibly be disabled via the script however, I do not have one of these systems to test with
 > 
 
 
@@ -11,10 +11,10 @@
 
 >[!NOTE]
 > 
-> Ive added a registry key to disable gaming copilot from working properly, that being said these settings will not be accessible, simply unpin gaming copilot and it wont popup anymore
+> Ive added a registry key to disable gaming Copilot from working properly, that being said these settings will not be accessible, simply unpin gaming Copilot and it wont popup anymore
 >
 
-If you use Xbox Game Bar check and disable all the gaming copilot privacy settings
+If you use Xbox Game Bar check and disable all the gaming Copilot privacy settings
 
 - Disable all the following settings found here:
 
@@ -40,7 +40,7 @@ If you use OneDrive (not recommended) there is an AI feature to scan images for 
 > Check to see if this is working on your system
 >
 
-If you have a Copilot+ pc (a cpu with a npu) then you will have access to Windows Studio Effects.
+If you have a Copilot+ PC (a CPU with a NPU) then you will have access to Windows Studio Effects.
 
 These effects are AI powered features for the camera and mic.
 
@@ -50,5 +50,6 @@ These effects are AI powered features for the camera and mic.
 
 
 Here is a good guide from elevenfourms: https://www.elevenforum.com/t/enable-or-disable-windows-studio-effects-for-camera-in-windows-11.39828/
+
 
 
