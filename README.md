@@ -136,11 +136,11 @@ You can view the newest updates to the script here:
 https://github.com/zoicware/RemoveWindowsAI/commits/main/
 
  > [!NOTE]  
-> Any feature added to an insider build will not be added to this script till it's added to the latest stable release
+> Any feature added to an Insider build will not be added to this script till it's added to the latest stable release
 
  
 > [!TIP]
-> **Submitting An AI Feature**
+> **Submitting an AI Feature**
 >
 > If you find an AI feature or registry key that is not currently removed or disabled by the script submit an issue with as much information as possible and I will add it to the script.
 
@@ -159,6 +159,7 @@ If you would like to support my work consider donating :)
 
 ### YT Guide
 #### [How to Remove ALL Windows AI Features](https://youtu.be/j5_eEBWGHFw)
+
 
 
 
