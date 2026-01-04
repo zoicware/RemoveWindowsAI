@@ -662,6 +662,45 @@ function Disable-Registry-Keys {
     Reg delete 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\WellKnownContracts' /v 'Windows.AI.MachineLearning.Preview.MachineLearningPreviewContract' /f
     "
     Run-Trusted -command $command -psversion $psversion
+
+    #disable ai setting in uwp photos app
+    $uwpPhotosSettings = "$env:LOCALAPPDATA\Packages\Microsoft.Windows.Photos_8wekyb3d8bbwe\Settings\settings.dat"
+    if (Test-Path $uwpPhotosSettings) {
+        [GC]::Collect()
+        reg.exe unload 'HKU\TEMP' *>$null
+        taskkill /im photos.exe /f *>$null
+        reg.exe load HKU\TEMP $uwpPhotosSettings >$null
+        if (!$revert) {
+            $regContent = @'
+Windows Registry Editor Version 5.00
+
+[HKEY_USERS\TEMP\LocalState] 
+"ImageCategorizationConsentDismissed"=hex(5f5e10c):74,00,72,00,75,00,65,00,00,\
+  00,4c,a0,89,0c,f7,2e,dc,01
+"ImageCategorizationConsent"=hex(5f5e10c):66,00,61,00,6c,00,73,00,65,00,00,00,\
+  6c,c4,53,ae,c5,51,dc,01
+'@
+        }
+        else {
+            $regContent = @'
+Windows Registry Editor Version 5.00
+
+[HKEY_USERS\TEMP\LocalState]
+"ImageCategorizationConsentDismissed"=hex(5f5e10c):74,00,72,00,75,00,65,00,00,\
+  00,4c,a0,89,0c,f7,2e,dc,01
+"ImageCategorizationConsent"=hex(5f5e10c):74,00,72,00,75,00,65,00,00,00,79,e7,\
+  fe,c5,c4,51,dc,01
+'@
+        }
+       
+        New-Item "$env:TEMP\DisableAIPhotos.reg" -Value $regContent -Force | Out-Null
+        regedit.exe /s "$env:TEMP\DisableAIPhotos.reg"
+        Start-Sleep 1
+        reg unload HKU\TEMP >$null
+        Remove-Item "$env:TEMP\DisableAIPhotos.reg" -Force -ErrorAction SilentlyContinue
+    }
+
+   
     
 
     #force policy changes
