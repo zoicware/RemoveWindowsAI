@@ -878,8 +878,27 @@ function Install-NOAIPackage {
             }
         }
         else {
-            Write-Status -msg 'Update package already installed... Skipping'
-            #Write-Host $($package | Select-Object *)
+            Write-Status -msg 'Update package already installed...'
+        }
+        
+        Write-Status -msg 'Checking update package install status...'
+        $package = Get-WindowsPackage -Online | Where-Object { $_.PackageName -like '*zoicware*' }
+        if ($package.PackageState -eq 'InstallPending') {
+            Write-Status -msg 'Package installed incorrectly... Uninstalling!' -errorOutput
+            try {
+                Remove-WindowsPackage -Online -PackageName $package.PackageName -NoRestart -ErrorAction Stop
+            }
+            catch {
+                dism.exe /Online /remove-package /PackageName:$($package.PackageName) /NoRestart
+            }
+            #remove reg install location 
+            $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+            Get-ChildItem $regPath | ForEach-Object {
+                $value = try { Get-ItemProperty "registry::$($_.Name)" -ErrorAction Stop } catch { $null }
+                if ($value -and $value.PSPath -like '*zoicware*') {
+                    Remove-Item -Path $value.PSPath -Recurse -Force
+                }
+            }
         }
     }
     else {
