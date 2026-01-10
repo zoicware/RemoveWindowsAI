@@ -91,7 +91,7 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 
 **Run with Specific Options Example**
  ```PowerShell
- & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -Options DisableRegKeys,RemoveNudgesKeys,RemoveAppxPackages
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -Options DisableRegKeys,RemoveAppxPackages,DisableCopilotPolicies 
  ```
 
 **All Possible Options:**
@@ -159,6 +159,7 @@ If you would like to support my work consider donating :)
 
 ### YT Guide
 #### [How to Remove ALL Windows AI Features](https://youtu.be/j5_eEBWGHFw)
+
 
 
 
