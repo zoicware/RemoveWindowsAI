@@ -453,6 +453,15 @@ function Disable-Registry-Keys {
     #disable office ai with group policy
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\training\general' /v 'disabletraining' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\training\specific\adaptivefloatie' /v 'disabletrainingofadaptivefloatie' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    #disable office ai content safety
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\general' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\alternativetext' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\imagequestionandanswering' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\promptassistance' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\rewrite' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\summarization' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\summarizationwithreferences' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\texttotable' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     #disable additional keys
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings' /v 'AutoOpenCopilotLargeScreens' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\generativeAI' /v 'Value' /t REG_SZ /d @('Deny', 'Allow')[$revert] /f *>$null
@@ -692,8 +701,8 @@ function Disable-Registry-Keys {
     else {
         if ($backup) {
             #backup .copilot file extension
-            Reg.exe export 'HKEY_CLASSES_ROOT\.copilot' "$backupPath\HKCR_Copilot.reg" *>$null
-            Reg.exe export 'HKEY_CURRENT_USER\Software\Classes\.copilot' "$backupPath\HKCU_Copilot.reg" *>$null
+            Reg.exe export 'HKEY_CLASSES_ROOT\.copilot' "$backupPath\HKCR_Copilot.reg" /y *>$null
+            Reg.exe export 'HKEY_CURRENT_USER\Software\Classes\.copilot' "$backupPath\HKCU_Copilot.reg" /y *>$null
         }
         Write-Status -msg 'Removing .copilot File Extension...' 
         Reg.exe delete 'HKCU\Software\Classes\.copilot' /f *>$null
@@ -1610,6 +1619,13 @@ function Remove-AI-Files {
             Write-Status -msg 'Unable to Find Backup Files!' -errorOutput 
         }
        
+        <#
+        if (Test-Path "$env:USERPROFILE\RemoveWindowsAI\Backup\CompStorage"){
+            Get-ChildItem "$env:USERPROFILE\RemoveWindowsAI\Backup\CompStorage" -Filter "*.reg"
+        }else{
+            Write-Status -msg 'Unable to Find Component Storage Backup!' -errorOutput 
+        }
+        #>
     }
     else {
 
@@ -2079,6 +2095,47 @@ function Remove-AI-Files {
         Start-Sleep 1
     }
 
+    #TEST:
+    # remove ai components from component storage
+    # this will prevent sfc from trying to repair files removed 
+    # but seems to prevent windows update from working
+    <#
+    $compPath = "$env:systemroot\System32\config\COMPONENTS"
+
+    reg.exe query 'HKLM\COMPONENTS' /ve *>$null
+    if ($LASTEXITCODE -ne 0) {
+        reg.exe load 'HKLM\COMPONENTS' $compPath >$null
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Status -msg "Unable to Load $compPath" -errorOutput
+    }
+    else {
+        $paths = Get-ChildItem 'registry::HKLM\COMPONENTS\DerivedData\Components' | Where-Object { $_.PSChildName -like '*copilot*' -or
+            $_.PSChildName -like '*userexperience-aix*' -or
+            $_.PSChildName -like '*userexperience-recall*' -or
+            $_.PSChildName -like '*userexperience-coreai*' } 
+
+        if ($paths) {
+            Write-Status -msg 'Removing AI Components Found in Component Storage...'
+            #backup by default for now
+            $backupPath = "$env:USERPROFILE\RemoveWindowsAI\Backup\CompStorage"
+            if (!(Test-Path $backupPath)) {
+                New-Item $backupPath -ItemType Directory | Out-Null
+            }
+
+            foreach ($path in $paths) {
+                reg.exe export $path.Name "$backupPath\$($path.PSChildName).reg" /y >$null
+                reg.exe delete $path.Name /f
+            }
+            
+        }
+        else {
+            Write-Status -msg 'No Ai Components Found in Component Storage'
+        }
+
+    }
+    #>
 }
 
 
