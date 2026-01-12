@@ -64,4 +64,8 @@
 
 #### Remove Recall Scheduled Task
 - This will create another sub script in `%TEMP%` in order to run with system privileges
-  - The script will agressively remove Recall's scheduled tasks by removing the files as well as the registry entries 
+  - The script will agressively remove Recall's scheduled tasks by removing the files as well as the registry entries
+ 
+#### Install Classic Apps
+- This will allow you to replace/install the classic version of notepad, paint, photo viewer, and photos legacy (uwp store app)
+  - Mspaint and Snipping Tool files found in the repo are extracted from Windows Server 2025 ISO as the desktop experience edition of server uses these classic apps
