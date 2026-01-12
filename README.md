@@ -73,9 +73,12 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  & ([scriptblock]::Create((irm 'https://kutt.it/RWAI')))
  ```
 
+
+
  <details>  
   <summary>Click to View UI</summary>
-  <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/92499461-f0d3-40f3-94f6-6d7a0d49fc10" />
+  <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/fa105ba5-c1dc-447c-ae2e-7ee373291042" />
+  <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/8a446a23-7c47-468e-856b-1e783205c511" />
 </details>  
 
 &nbsp;
@@ -159,6 +162,7 @@ If you would like to support my work consider donating :)
 
 ### YT Guide
 #### [How to Remove ALL Windows AI Features](https://youtu.be/j5_eEBWGHFw)
+
 
 
 
