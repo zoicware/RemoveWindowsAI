@@ -37,7 +37,11 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
    - This will hide the settings page `AI Components` 
  - **Disable Rewrite AI Feature in Notepad**
  - **Remove Recall Tasks**
-   - Forcibly removes all instances of Recall's scheduled tasks  
+   - Forcibly removes all instances of Recall's scheduled tasks
+
+ - #### Install Classic Apps
+   - These options will allow you to replace the modern AI infested apps with their classic version
+   - **Options:** Replace Notepad, Paint, Snipping Tool, Photo Viewer, and Install Photos Legacy 
  
 #### Manual AI Disabling
 - Unfortunately, not all features and settings can be disabled via a script. This guide will show additional AI features to disable.
@@ -111,6 +115,20 @@ DisableRewrite
 RemoveRecallTasks
 ```
 
+**Run Install Classic Apps**
+ ```PowerShell
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -InstallClassicApps photoviewer,mspaint,snippingtool,notepad  
+ ```
+
+**All Possible Options:**
+```
+photoviewer          
+mspaint     
+snippingtool       
+notepad        
+photoslegacy 
+```
+
 
 **Run with Backup Mode Enabled**
 
@@ -162,6 +180,7 @@ If you would like to support my work consider donating :)
 
 ### YT Guide
 #### [How to Remove ALL Windows AI Features](https://youtu.be/j5_eEBWGHFw)
+
 
 
 
