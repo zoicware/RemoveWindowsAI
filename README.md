@@ -64,7 +64,7 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  ---
 
  > [!WARNING]
- > Running the script with PowerShell 7 can cause issues, to avoid this ensure you are running Windows PowerShell (5.1)
+ > Running the script with PowerShell 7 is no longer supported and it WILL cause issues, to avoid this ensure you are running Windows PowerShell (5.1)
  >
 
  ### Launch with UI
@@ -180,6 +180,7 @@ If you would like to support my work consider donating :)
 
 ### YT Guide
 #### [How to Remove ALL Windows AI Features](https://youtu.be/j5_eEBWGHFw)
+
 
 
 
