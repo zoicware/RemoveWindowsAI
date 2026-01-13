@@ -27,6 +27,32 @@ if ($nonInteractive) {
 }
 
 
+#get powershell version to ensure run-trusted doesnt enter an infinite loop
+$version = $PSVersionTable.PSVersion
+if ($version -like '7*') {
+    $Global:psversion = 7
+}
+else {
+    $Global:psversion = 5
+}
+
+if ($psversion -ge 7) {
+    Write-Host "ERROR: This script requires Windows PowerShell 5.1 (powershell.exe)." -ForegroundColor Red
+    Write-Host "You are currently running PowerShell version $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)." -ForegroundColor Red
+    Write-Host "PowerShell 7+ (pwsh.exe) is not supported. Please run the script using the classic Windows PowerShell 5.1." -ForegroundColor Red
+    if (-not $nonInteractive) {
+        try {
+            Add-Type -AssemblyName System.Windows.Forms
+            [System.Windows.Forms.MessageBox]::Show(
+                "This script must be run in Windows PowerShell 5.1.`n`nCurrent version: $($PSVersionTable.PSVersion)`n`nPlease use powershell.exe instead of pwsh.exe.",
+                "PowerShell Version Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            ) | Out-Null
+        } catch { }
+    }
+    exit 1
+}
 
 If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
     #leave out the trailing " to add supplied params first 
@@ -189,12 +215,7 @@ function Run-Trusted([String]$command, $psversion) {
     # changed start-process to wshell run to avoid the first powershell instance window from flashing
 
 
-    if ($psversion -eq 7) {
-        $psexe = 'pwsh.exe'
-    }
-    else {
-        $psexe = 'PowerShell.exe'
-    }
+    $psexe = 'PowerShell.exe'
 
     #convert command to base64 to avoid errors with spaces
     $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
@@ -263,15 +284,6 @@ function Write-Status {
 #=====================================================================================
 
 Write-Host '~ ~ ~ Remove Windows AI by @zoicware ~ ~ ~' -ForegroundColor DarkCyan
-
-#get powershell version to ensure run-trusted doesnt enter an infinite loop
-$version = $PSVersionTable.PSVersion
-if ($version -like '7*') {
-    $Global:psversion = 7
-}
-else {
-    $Global:psversion = 5
-}
 
 if ($EnableLogging) {
     $date = (Get-Date).ToString('MM-dd-yyyy-HH:mm') -replace ':'
@@ -3597,4 +3609,4 @@ if (!$nonInteractive) {
     $Host.UI.RawUI.ReadKey() *>$null
 }
 
-exit
+exitz
