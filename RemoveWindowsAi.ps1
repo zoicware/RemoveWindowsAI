@@ -3609,4 +3609,5 @@ if (!$nonInteractive) {
     $Host.UI.RawUI.ReadKey() *>$null
 }
 
-exitz
+exit
+
