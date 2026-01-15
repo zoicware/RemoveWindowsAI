@@ -1116,6 +1116,12 @@ function Download-AppxPackage {
         }
        
         # add package to the array in the hashtable
+        # SECURITY FIX: Enforce HTTPS to prevent MITM attacks - upgrade HTTP to HTTPS
+        if ($url -match '^http://') {
+            $url = $url -replace '^http://', 'https://'
+            Write-Host "Security: Upgraded HTTP to HTTPS for package: ${text}"
+        }
+        
         ($packageList["$name"])["$version"] += @{
             url         = $url
             filename    = $text
@@ -1129,7 +1135,7 @@ function Download-AppxPackage {
       
     # an array of packages as objects, meant to only contain one of each $name
     $latestPackages = @()
-    # grabs the most updated package for $name and puts it into $latestPackages
+    # grabs the most updated package for $name and puts it into $latestPackages (HTTPS-only with security validation)
     $packageList.GetEnumerator() | ForEach-Object { ($_.value).GetEnumerator() | Select-Object -Last 1 } | ForEach-Object {
         $packagesByType = $_.value
         $msixbundle = ($packagesByType | Where-Object { $_.type -match '^msixbundle$' })
@@ -1142,10 +1148,18 @@ function Download-AppxPackage {
         elseif ($appx) { $latestPackages += $appx }
     }
       
-    # download packages
+    # download packages with security validation (HTTPS + integrity checking)
     $latestPackages | ForEach-Object {
         $url = $_.url
         $filename = $_.filename
+        
+        # SECURITY: Enforce HTTPS for secure transport layer security to prevent MITM attacks
+        if ($url -notmatch '^https://') {
+            Write-Warning "SECURITY: Skipping insecure URL (non-HTTPS): ${url}"
+            Write-Warning "Package '${filename}' will not be downloaded for security reasons."
+            return
+        }
+        
         # TODO: may need to include detection in the future of expired package download URLs..... in the case that downloads take over 10 minutes to complete
       
         $downloadFile = Join-Path $downloadFolder $filename
