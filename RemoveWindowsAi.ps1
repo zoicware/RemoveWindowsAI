@@ -37,19 +37,20 @@ else {
 }
 
 if ($psversion -ge 7) {
-    Write-Host "ERROR: This script requires Windows PowerShell 5.1 (powershell.exe)." -ForegroundColor Red
+    Write-Host 'ERROR: This script requires Windows PowerShell 5.1 (powershell.exe).' -ForegroundColor Red
     Write-Host "You are currently running PowerShell version $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)." -ForegroundColor Red
-    Write-Host "PowerShell 7+ (pwsh.exe) is not supported. Please run the script using the classic Windows PowerShell 5.1." -ForegroundColor Red
+    Write-Host 'PowerShell 7+ (pwsh.exe) is not supported. Please run the script using the classic Windows PowerShell 5.1.' -ForegroundColor Red
     if (-not $nonInteractive) {
         try {
             Add-Type -AssemblyName System.Windows.Forms
             [System.Windows.Forms.MessageBox]::Show(
                 "This script must be run in Windows PowerShell 5.1.`n`nCurrent version: $($PSVersionTable.PSVersion)`n`nPlease use powershell.exe instead of pwsh.exe.",
-                "PowerShell Version Error",
+                'PowerShell Version Error',
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Error
             ) | Out-Null
-        } catch { }
+        }
+        catch { }
     }
     exit 1
 }
@@ -524,7 +525,9 @@ function Disable-Registry-Keys {
     #Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\2931206798' /v 'EnabledState' /t REG_DWORD /d '2' /f
     #Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\3098978958' /v 'EnabledState' /t REG_DWORD /d '2' /f
     #Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\3233196686' /v 'EnabledState' /t REG_DWORD /d '2' /f
-    
+    #disable core ai / click to do with feature management 
+    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\2283032206' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\502943886' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     #disable ask copilot (taskbar search)
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' /v 'TaskbarCompanion' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKCU\Software\Microsoft\Windows\Shell\BrandedKey' /v 'BrandedKeyChoiceType' /t REG_SZ /d @('Search', 'App')[$revert] /f *>$null
