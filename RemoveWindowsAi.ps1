@@ -842,11 +842,12 @@ Windows Registry Editor Version 5.00
 '@
         }
        
-        New-Item "$env:TEMP\DisableAIPhotos.reg" -Value $regContent -Force | Out-Null
-        regedit.exe /s "$env:TEMP\DisableAIPhotos.reg"
+        $tempDir = ([System.IO.Path]::GetTempPath())
+        New-Item "$($tempDir)DisableAIPhotos.reg" -Value $regContent -Force | Out-Null
+        regedit.exe /s "$($tempDir)DisableAIPhotos.reg"
         Start-Sleep 1
         reg unload HKU\TEMP >$null
-        Remove-Item "$env:TEMP\DisableAIPhotos.reg" -Force -ErrorAction SilentlyContinue
+        Remove-Item "$($tempDir)DisableAIPhotos.reg" -Force -ErrorAction SilentlyContinue
     }
 
    
