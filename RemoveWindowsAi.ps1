@@ -316,6 +316,8 @@ else {
     $Global:backup = 0
 }
 
+$Global:tempDir = ([System.IO.Path]::GetTempPath())
+
 #=====================================================================================
 
 function Add-LogInfo {
@@ -842,7 +844,7 @@ Windows Registry Editor Version 5.00
 '@
         }
        
-        $tempDir = ([System.IO.Path]::GetTempPath())
+        
         New-Item "$($tempDir)DisableAIPhotos.reg" -Value $regContent -Force | Out-Null
         regedit.exe /s "$($tempDir)DisableAIPhotos.reg"
         Start-Sleep 1
@@ -862,6 +864,7 @@ Windows Registry Editor Version 5.00
 
 
 function Install-NOAIPackage {
+    
     if (!$revert) {
         $package = Get-WindowsPackage -Online | Where-Object { $_.PackageName -like '*zoicware*' }
         if (!$package) {
@@ -892,7 +895,7 @@ function Install-NOAIPackage {
                 Write-Status -msg 'Downloading RemoveWindowsAI Package From Github...'
                 $ProgressPreference = 'SilentlyContinue'
                 try {
-                    Invoke-WebRequest -Uri "https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -OutFile "$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -UseBasicParsing -ErrorAction Stop
+                    Invoke-WebRequest -Uri "https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -OutFile "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -UseBasicParsing -ErrorAction Stop
                 }
                 catch {
                     Write-Status -msg "Unable to Download Package at: https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -errorOutput
@@ -901,10 +904,10 @@ function Install-NOAIPackage {
 
                 Write-Status -msg 'Installing RemoveWindowsAI Package...'
                 try {
-                    Add-WindowsPackage -Online -PackagePath "$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck -ErrorAction Stop >$null
+                    Add-WindowsPackage -Online -PackagePath "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck -ErrorAction Stop >$null
                 }
                 catch {
-                    dism.exe /Online /Add-Package /PackagePath:"$env:TEMP\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" /NoRestart /IgnoreCheck >$null
+                    dism.exe /Online /Add-Package /PackagePath:"$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" /NoRestart /IgnoreCheck >$null
                 }
             }
         }
@@ -1062,7 +1065,8 @@ function Download-AppxPackage {
         $downloadFolder = "$outputDir\$PackageFamilyName"
     }
     else {
-        $downloadFolder = Join-Path $env:TEMP $PackageFamilyName
+        
+        $downloadFolder = Join-Path $tempDir $PackageFamilyName
         if (!(Test-Path $downloadFolder -PathType Container)) {
             New-Item $downloadFolder -ItemType Directory -Force | Out-Null
         }
@@ -1229,8 +1233,8 @@ function Remove-AI-Appx-Packages {
         #to make this part faster make a txt file in temp with chunck of removal 
         #code and then just run that from run 
         #trusted function due to the design of having it hidden from the user
-
-        $packageRemovalPath = "$env:TEMP\aiPackageRemoval.ps1"
+        
+        $packageRemovalPath = "$($tempDir)aiPackageRemoval.ps1"
         if (!(test-path $packageRemovalPath)) {
             New-Item $packageRemovalPath -Force | Out-Null
         }
@@ -1452,7 +1456,7 @@ foreach ($choice in $aipackages) {
 
 
         Write-Status -msg 'Removing AI Appx Packages...'
-        $command = "&$env:TEMP\aiPackageRemoval.ps1"
+        $command = "&`"$($tempDir)aiPackageRemoval.ps1`""
         Run-Trusted -command $command -psversion $psversion
 
         #check packages removal
@@ -1468,7 +1472,7 @@ foreach ($choice in $aipackages) {
                     $Global:logInfo.Result = "Found Packages: $packages"
                     Add-LogInfo -logPath $logPath -info $Global:logInfo
                 }
-                $command = "&$env:TEMP\aiPackageRemoval.ps1"
+                $command = "&`"$($tempDir)aiPackageRemoval.ps1`""
                 Run-Trusted -command $command -psversion $psversion
             }
     
@@ -2081,8 +2085,8 @@ function Remove-AI-Files {
             'C:\Windows\WinSxS',
             'C:\Windows\System32\CatRoot'
         )
-
-        New-Item "$env:TEMP\PathsToDelete.txt" -ItemType File -Force | Out-Null
+        
+        New-Item "$($tempDir)PathsToDelete.txt" -ItemType File -Force | Out-Null
         foreach ($keyword in $aiKeyWords) {
             foreach ($location in $regLocations) {
                 Get-ChildItem $location -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like "*$keyword*" } | ForEach-Object {
@@ -2108,12 +2112,12 @@ function Remove-AI-Files {
                 $(Test-Path $_.FullName -PathType Container) -eq $true 
             } | ForEach-Object {
                 #add paths to txt to delete with trusted installer
-                Add-Content "$env:TEMP\PathsToDelete.txt" -Value $_.FullName | Out-Null
+                Add-Content "$($tempDir)PathsToDelete.txt" -Value $_.FullName | Out-Null
             } 
         }
         
         
-        $command = "Get-Content `"`$env:TEMP\PathsToDelete.txt`" | ForEach-Object {Remove-Item `$_ -Force -Recurse -EA 0}"
+        $command = "Get-Content `"$($tempDir)PathsToDelete.txt`" | ForEach-Object {Remove-Item `$_ -Force -Recurse -EA 0}"
         Run-Trusted -command $command -psversion $psversion
         Start-Sleep 1
     }
@@ -2254,11 +2258,12 @@ Get-ScheduledTask -TaskName "*Office Actions Server*" -ErrorAction SilentlyConti
     }
     Remove-Item 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\Microsoft\Office\Office Actions Server' -Recurse -Force -ErrorAction SilentlyContinue
 "@
-        $subScript = "$env:TEMP\RemoveRecallTasks.ps1"
-        New-Item $subScript -Force | Out-Null
-        Set-Content $subScript -Value $code -Force
+        
+        $subScript = "$($tempDir)RemoveRecallTasks.ps1"
+        New-Item "$subScript" -Force | Out-Null
+        Set-Content "$subScript" -Value $code -Force
 
-        $command = "&$subScript"
+        $command = "&`"$subScript`""
         Run-Trusted -command $command -psversion $psversion
         Start-Sleep 1
         
@@ -2565,8 +2570,9 @@ function install-photoslegacy {
     $appx = Get-AppxPackage -AllUsers | Where-Object { $_.PackageFullName -like '*PhotosLegacy*' }
 
     if (!$appx) {
-        Remove-Item "$env:TEMP\Microsoft.PhotosLegacy_8wekyb3d8bbwe*" -Force -Recurse -ErrorAction SilentlyContinue
-        $downloadedfiles = Download-AppxPackage -PackageFamilyName 'Microsoft.PhotosLegacy_8wekyb3d8bbwe' -outputDir "$env:TEMP" 
+        
+        Remove-Item "$($tempDir)Microsoft.PhotosLegacy_8wekyb3d8bbwe*" -Force -Recurse -ErrorAction SilentlyContinue
+        $downloadedfiles = Download-AppxPackage -PackageFamilyName 'Microsoft.PhotosLegacy_8wekyb3d8bbwe' -outputDir "$tempDir"
         $package = $downloadedfiles | Where-Object { $_ -match '\.appxbundle$' } | Select-Object -First 1
         $dependencies = $downloadedfiles | Where-Object { $_ -match '\.appx$' } 
         if ($package) {
@@ -2597,26 +2603,27 @@ function install-classicapps {
     }
     else {
         #check if they are already downloaded if not download them
-        if (!(Test-Path "$env:TEMP\ClassicApps")) {
+        
+        if (!(Test-Path "$($tempDir)ClassicApps")) {
             $ProgressPreference = 'SilentlyContinue'
             Write-Status -msg 'Downloading Classic Apps Files from Github...'
             $url = 'https://github.com/zoicware/RemoveWindowsAI/archive/refs/heads/main.zip'
             try {
-                Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\main.zip" -ErrorAction Stop
+                Invoke-WebRequest -Uri $url -OutFile "$($tempDir)main.zip" -ErrorAction Stop
             }
             catch {
                 Write-Status -msg 'Unable to Download Github Repo' -errorOutput 
                 return
             }
-            Expand-Archive -Path "$env:TEMP\main.zip" -DestinationPath $env:TEMP -Force
-            $sourceDir = "$env:TEMP\RemoveWindowsAI-main\ClassicApps"
-            $destDir = "$env:TEMP\ClassicApps"
+            Expand-Archive -Path "$($tempDir)main.zip" -DestinationPath "$tempDir" -Force
+            $sourceDir = "$($tempDir)RemoveWindowsAI-main\ClassicApps"
+            $destDir = "$($tempDir)ClassicApps"
             Copy-Item -Path $sourceDir -Destination $destDir -Recurse -Force
-            Remove-Item "$env:TEMP\RemoveWindowsAI-main" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item "$env:TEMP\main.zip" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "$($tempDir)RemoveWindowsAI-main" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "$($tempDir)main.zip" -Recurse -Force -ErrorAction SilentlyContinue
         }
 
-        $classicApps = "$env:TEMP\ClassicApps"
+        $classicApps = "$($tempDir)ClassicApps"
     }
 
 
@@ -3515,19 +3522,19 @@ else {
                 if ($result -eq [System.Windows.MessageBoxResult]::Yes) {
                     #cleanup code
                     try {
-                        Remove-Item "$env:TEMP\aiPackageRemoval.ps1" -Force -ErrorAction SilentlyContinue
+                        Remove-Item "$($tempDir)aiPackageRemoval.ps1" -Force -ErrorAction SilentlyContinue
                     }
                     catch {}
                     try {
-                        Remove-Item "$env:TEMP\RemoveRecallTasks.ps1" -Force -ErrorAction SilentlyContinue
+                        Remove-Item "$($tempDir)RemoveRecallTasks.ps1" -Force -ErrorAction SilentlyContinue
                     }
                     catch {}
                     try {
-                        Remove-Item "$env:TEMP\PathsToDelete.txt" -Force -ErrorAction SilentlyContinue
+                        Remove-Item "$($tempDir)PathsToDelete.txt" -Force -ErrorAction SilentlyContinue
                     }
                     catch {}  
                     try {
-                        Remove-Item "$env:TEMP\ZoicwareRemoveWindowsAI-*1.0.0.0.cab" -Force -ErrorAction SilentlyContinue
+                        Remove-Item "$($tempDir)ZoicwareRemoveWindowsAI-*1.0.0.0.cab" -Force -ErrorAction SilentlyContinue
                     }
                     catch {}
 
@@ -3573,19 +3580,19 @@ else {
 
 #cleanup code
 try {
-    Remove-Item "$env:TEMP\aiPackageRemoval.ps1" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$($tempDir)aiPackageRemoval.ps1" -Force -ErrorAction SilentlyContinue
 }
 catch {}
 try {
-    Remove-Item "$env:TEMP\RemoveRecallTasks.ps1" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$($tempDir)RemoveRecallTasks.ps1" -Force -ErrorAction SilentlyContinue
 }
 catch {}
 try {
-    Remove-Item "$env:TEMP\PathsToDelete.txt" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$($tempDir)PathsToDelete.txt" -Force -ErrorAction SilentlyContinue
 }
 catch {}
 try {
-    Remove-Item "$env:TEMP\ZoicwareRemoveWindowsAI-*1.0.0.0.cab" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$($tempDir)ZoicwareRemoveWindowsAI-*1.0.0.0.cab" -Force -ErrorAction SilentlyContinue
 }
 catch {}
 
