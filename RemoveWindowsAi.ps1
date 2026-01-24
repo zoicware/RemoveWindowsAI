@@ -335,6 +335,65 @@ function Add-LogInfo {
     Add-Content $logPath -Value $content | Out-Null
 }
 
+
+function Create-RestorePoint {
+    param(
+        [switch]$nonInteractive
+    )
+
+    #check vss service first
+    $vssService = Get-Service -Name 'VSS' -ErrorAction SilentlyContinue
+    if ($vssService -and $vssService.StartType -eq 'Disabled') {
+        try {
+            Write-Status -msg 'Enabling VSS Service...'
+            Set-Service -Name 'VSS' -StartupType Manual -ErrorAction Stop
+            Start-Service -Name 'VSS' -ErrorAction Stop
+        }
+        catch {
+            Write-Status -msg 'Unable to Start VSS Service... Can not create restore point!' -errorOutput
+            return
+        }
+        
+    }
+    #enable system protection to allow restore points
+    $restoreEnabled = Get-ComputerRestorePoint -ErrorAction SilentlyContinue
+    if (!$restoreEnabled) {
+        Write-Status -msg 'Enabling Restore Points on System...'
+        Enable-ComputerRestore -Drive "$env:SystemDrive\" 
+    }
+
+    
+    if ($nonInteractive) {
+        #allow restore point to be created even if one was just made
+        $restoreFreqPath = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\SystemRestore'
+        $restoreFreqKey = 'SystemRestorePointCreationFrequency'
+        $currentValue = (Get-ItemProperty -Path $restoreFreqPath -Name $restoreFreqKey -ErrorAction SilentlyContinue).$restoreFreqKey
+        if ($currentValue -ne 0) {
+            Set-ItemProperty -Path $restoreFreqPath -Name $restoreFreqKey -Value 0 -Force
+        }
+
+        $restorePointName = "RemoveWindowsAI-$(Get-Date -Format 'yyyy-MM-dd')"
+        Write-Status -msg "Creating Restore Point: [$restorePointName]"
+        Write-Status -msg 'This may take a moment...please wait'
+        Checkpoint-Computer -Description $restorePointName -RestorePointType 'MODIFY_SETTINGS' 
+    }
+    else {
+        Write-Status -msg 'Opening Restore Point Dialog...'
+        try {
+            $proc = Start-Process 'SystemPropertiesProtection.exe' -ErrorAction Stop -PassThru
+        }
+        catch {
+            $proc = Start-Process 'C:\Windows\System32\control.exe' -ArgumentList 'sysdm.cpl ,4' -PassThru
+        }
+        #click configure on the window
+        Start-Sleep 1
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.SendKeys]::SendWait('%c') 
+        Wait-Process -Id $proc.Id
+    }
+
+}
+
 function Disable-Registry-Keys {
     #maybe add params for particular parts
 
@@ -2656,6 +2715,9 @@ function install-classicapps {
 
 
 if ($nonInteractive) {
+    if ($backup) {
+        Create-RestorePoint -nonInteractive
+    }
     if ($AllOptions) {
         Disable-Registry-Keys 
         Install-NOAIPackage
@@ -3487,6 +3549,9 @@ else {
             }
     
             try {
+                if ($backup) {
+                    Create-RestorePoint
+                }
                 foreach ($func in $selectedFunctions) {
                     $progressText.Text = "Executing: $($func.Replace('-', ' '))"
                     $progressWindow.UpdateLayout()
