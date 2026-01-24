@@ -533,6 +533,22 @@ function Disable-Registry-Keys {
     #disable office ai with group policy
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\training\general' /v 'disabletraining' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\training\specific\adaptivefloatie' /v 'disabletrainingofadaptivefloatie' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    #disable connected experiences in office should prevent copilot from working 
+    Reg.exe add 'HKCU\Software\Policies\Microsoft\office\16.0\common\privacy' /v 'controllerconnectedservicesenabled' /t REG_DWORD /d @('2', '1')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Policies\Microsoft\office\16.0\common\privacy' /v 'usercontentdisabled' /t REG_DWORD /d @('2', '1')[$revert] /f *>$null
+    #disable copilot buttons in word
+    #Reg.exe add 'HKCU\Software\Policies\Microsoft\office\16.0\word\disabledcmdbaritemslist' /v 'TCID1' /t REG_SZ /d '47229' /f
+    #Reg.exe add 'HKCU\Software\Policies\Microsoft\office\16.0\word\disabledcmdbaritemslist' /v 'TCID2' /t REG_SZ /d '43223' /f
+    #Reg.exe add 'HKCU\Software\Policies\Microsoft\office\16.0\word\disabledcmdbaritemslist' /v 'TCID3' /t REG_SZ /d '34872' /f
+    #Reg.exe add 'HKCU\Software\Policies\Microsoft\office\16.0\word\disabledcmdbaritemslist' /v 'TCID4' /t REG_SZ /d '42552' /f
+    #disable copilot in word
+    Reg.exe add 'HKCU\Software\Microsoft\Office\16.0\Word\Options' /v 'EnableCopilot' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    #disable copilot in excel
+    Reg.exe add 'HKCU\Software\Microsoft\Office\16.0\Excel\Options' /v 'EnableCopilot' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    #disable copilot in onenote
+    Reg.exe add 'HKCU\Software\Microsoft\Office\16.0\OneNote\Options\Copilot' /v 'CopilotEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Office\16.0\OneNote\Options\Copilot' /v 'CopilotNotebooksEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Office\16.0\OneNote\Options\Copilot' /v 'CopilotSkittleEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #disable office ai content safety
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\general' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\alternativetext' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
