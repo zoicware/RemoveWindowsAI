@@ -1040,6 +1040,11 @@ Windows Registry Editor Version 5.00
                 Value = @('1', '0')[$revert] # 1 = disable    0 = enable
                 Type  = '5f5e10b'
             }
+            #search host likes to come back and sometimes prevents the dat file from being loaded 
+            if (Get-Process -Name SearchHost -ErrorAction SilentlyContinue) {
+                Stop-Process -Name @('SearchHost', 'AppActions') -Force -ErrorAction SilentlyContinue
+            }
+
             $setting | Set-UwpAppRegistryEntry -FilePath $settingsDat
         }
      
