@@ -422,6 +422,26 @@ function Set-UwpAppRegistryEntry {
     begin {
         $AppSettingsRegPath = 'HKEY_USERS\APP_SETTINGS'
         $RegContent = "Windows Registry Editor Version 5.00`n"
+
+        reg.exe UNLOAD $AppSettingsRegPath 2>&1 | Out-Null
+
+        #load settings early to prevent search host from spawning again
+        #retry loading until it works... 30 max tries just to prevent this from infinite looping 
+        #should never reach 30 or anywhere close
+        $max = 30
+        $attempts = 0
+        do {
+            Stop-Process -Name 'SearchHost' -Force -ErrorAction SilentlyContinue
+            Start-Sleep 0.25
+            reg.exe LOAD $AppSettingsRegPath $FilePath *>$null
+            $attempts++
+        }while ($LASTEXITCODE -ne 0 -and $attempts -le $max)
+
+        if ($attempts -ge $max) {
+            Write-Status -msg 'Max attempts reached while trying to load settings.dat' -errorOutput
+            return
+        }
+      
     }
 
     process {
@@ -474,12 +494,6 @@ function Set-UwpAppRegistryEntry {
         $SettingRegFilePath = "$($tempDir)uwp_app_settings.reg"
         $RegContent | Out-File -FilePath $SettingRegFilePath
 
-        reg.exe UNLOAD $AppSettingsRegPath 2>&1 | Out-Null
-        #search host likes to come back and sometimes prevents the dat file from being loaded 
-        if (Get-Process -Name SearchHost -ErrorAction SilentlyContinue) {
-            Stop-Process -Name @('SearchHost', 'AppActions') -Force -ErrorAction SilentlyContinue
-        }
-        reg.exe LOAD $AppSettingsRegPath $FilePath | Out-Null
         reg.exe IMPORT $SettingRegFilePath 2>&1 | Out-Null
         reg.exe UNLOAD $AppSettingsRegPath | Out-Null
 
