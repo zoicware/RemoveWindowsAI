@@ -425,20 +425,30 @@ function Set-UwpAppRegistryEntry {
 
         reg.exe UNLOAD $AppSettingsRegPath 2>&1 | Out-Null
 
-        #load settings early to prevent search host from spawning again
-        #retry loading until it works... 30 max tries just to prevent this from infinite looping 
-        #should never reach 30 or anywhere close
         $max = 30
         $attempts = 0
+        $ProcessToStop = @(
+            'AppActions'
+            'SearchHost'
+            'FESearchHost'
+            'msedgewebview2'
+            'TextInputHost'
+            'VisualAssistExe'
+            'WebExperienceHostApp'
+        )
+        Stop-Process -Name $ProcessToStop -Force -ErrorAction SilentlyContinue 
+        # do while is needed here because wait-process in this case is not working maybe cause its just a trash function lol
+        # using microsofts own example found in the docs does not work 
+        # https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/wait-process?view=powershell-7.5#example-1-stop-a-process-and-wait
+
+        # since we are trying multiple times while the processes are stopping this will work as soon as the file is freed 
         do {
-            Stop-Process -Name 'SearchHost' -Force -ErrorAction SilentlyContinue
-            Start-Sleep 0.25
             reg.exe LOAD $AppSettingsRegPath $FilePath *>$null
             $attempts++
-        }while ($LASTEXITCODE -ne 0 -and $attempts -le $max)
-
-        if ($attempts -ge $max) {
-            Write-Status -msg 'Max attempts reached while trying to load settings.dat' -errorOutput
+        } while ($LASTEXITCODE -ne 0 -and $attempts -lt $max)
+    
+        if ($LASTEXITCODE -ne 0) {
+            Write-Status -msg 'Unable to load settings.dat' -errorOutput
             return
         }
       
@@ -1049,8 +1059,7 @@ Windows Registry Editor Version 5.00
             'Microsoft.Windows.Photos_8wekyb3d8bbwe'
             'MicrosoftWindows.Client.CBS_cw5n1h2txyewy' #describe image (system)
         )
-        #prevent file lock
-        Stop-Process -Name @('SearchHost', 'AppActions') -Force -ErrorAction SilentlyContinue
+     
         foreach ($app in $apps) {
             $setting = [PSCustomObject]@{
                 Name  = $app
