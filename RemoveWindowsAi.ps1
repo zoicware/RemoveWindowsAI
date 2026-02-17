@@ -1261,7 +1261,7 @@ function Download-AppxPackage {
         $UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome # needed as sometimes the API will block things when it knows requests are coming from PowerShell
     }
     catch {
-        #ignore error
+        $UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     }
       
     $DownloadedFiles = @()
@@ -1297,17 +1297,26 @@ function Download-AppxPackage {
         ring = $versionRing
         lang = 'en-US'
     }
+
+    $headers = @{
+        'User-Agent'       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        'Accept'           = 'application/json, text/javascript, */*; q=0.01'
+        'Content-Type'     = 'application/x-www-form-urlencoded; charset=UTF-8'
+        'X-Requested-With' = 'XMLHttpRequest'
+        'Origin'           = 'https://store.rg-adguard.net'
+        'Referer'          = 'https://store.rg-adguard.net/'
+    }
       
     # required due to the api being protected behind Cloudflare now
     if (-Not $apiWebSession) {
         $global:apiWebSession = $null
         $apiHostname = (($apiUrl.split('/'))[0..2]) -Join '/'
-        Invoke-WebRequest -Uri $apiHostname -UserAgent $UserAgent -SessionVariable $apiWebSession -UseBasicParsing
+        Invoke-WebRequest -Uri $apiHostname -UserAgent $UserAgent -SessionVariable $apiWebSession -UseBasicParsing 
     }
       
     $raw = $null
     try {
-        $raw = Invoke-RestMethod -Method Post -Uri $apiUrl -ContentType 'application/x-www-form-urlencoded' -Body $body -UserAgent $UserAgent -WebSession $apiWebSession
+        $raw = Invoke-RestMethod -Method Post -Uri $apiUrl -Headers $headers -Body $body -WebSession $apiWebSession
     }
     catch {
         $errorMsg = 'An error occurred: ' + $_
