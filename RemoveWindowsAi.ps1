@@ -732,9 +732,13 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\502943886' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     #disable ask copilot (taskbar search)
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' /v 'TaskbarCompanion' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
-    Reg.exe add 'HKCU\Software\Microsoft\Windows\Shell\BrandedKey' /v 'BrandedKeyChoiceType' /t REG_SZ /d @('Search', 'App')[$revert] /f *>$null
-    Reg.exe add 'HKCU\Software\Microsoft\Windows\Shell\BrandedKey' /v 'AppAumid' /t REG_SZ /d @(' ', 'Microsoft.Copilot_8wekyb3d8bbwe!App')[$revert] /f *>$null
+    #this branded key is blocked by the user choice driver too bad ms was very lazy and hardcoded a list of exe's not allowed to edit this key
+    #workaround for any key blocked by user choice driver: rename reg.exe to something else
+    Copy-Item (Get-Command reg.exe).Source .\reg1.exe -Force -ErrorAction SilentlyContinue
+    & .\reg1.exe add 'HKCU\Software\Microsoft\Windows\Shell\BrandedKey' /v 'BrandedKeyChoiceType' /t REG_SZ /d @('Search', 'App')[$revert] /f *>$null
+    & .\reg1.exe add 'HKCU\Software\Microsoft\Windows\Shell\BrandedKey' /v 'AppAumid' /t REG_SZ /d @(' ', 'Microsoft.Copilot_8wekyb3d8bbwe!App')[$revert] /f *>$null
     Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\CopilotKey' /v 'SetCopilotHardwareKey' /t REG_SZ /d @(' ', 'Microsoft.Copilot_8wekyb3d8bbwe!App')[$revert] /f *>$null
+    Remove-Item .\reg1.exe -Force -ErrorAction SilentlyContinue
     #disable recall customized homepage 
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\SettingSync\WindowsSettingHandlers' /v 'A9HomeContentEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #disable typing data harvesting for ai training 
