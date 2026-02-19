@@ -281,6 +281,14 @@ function Write-Status {
     
 }
 
+#some users have messed with the system envrioment variables (for some reason) this breaks inline cmdlets like Reg.exe 
+#to fix this we can ensure the enviroment variable for this powershell session is set properly
+if ($env:PATH -notlike "*$env:SystemRoot\system32;*") {
+    Write-Status -msg "System Envrioment Variable 'PATH' is corrupted! Fixing for script session..." -errorOutput
+    $env:PATH = "$env:SystemRoot\system32;$env:SystemRoot;$env:SystemRoot\System32\Wbem;" + $env:PATH
+}
+
+
 #setup script
 #=====================================================================================
 
