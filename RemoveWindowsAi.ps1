@@ -2195,7 +2195,10 @@ function Remove-AI-Files {
         #remove any screenshots from recall
         Write-Status -msg 'Removing Any Screenshots By Recall...'
         Remove-Item -Path "$env:LOCALAPPDATA\CoreAIPlatform*" -Force -Recurse -ErrorAction SilentlyContinue
-
+        if ($env:OneDrive) {
+            Remove-Item -Path "$env:OneDrive\Microsoft Copilot Chat Files" -Force -Recurse -ErrorAction SilentlyContinue
+        }
+       
         #remove ai uri handlers
         Write-Status -msg 'Removing AI URI Handlers...'
         $uris = @(
