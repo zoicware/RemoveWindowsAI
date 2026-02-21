@@ -6,21 +6,6 @@
 > Some of these are Copilot+ PC features and can possibly be disabled via the script however, I do not have one of these systems to test with
 > 
 
-
-### Gaming Copilot
-
->[!NOTE]
-> 
-> I have added a registry key to disable gaming Copilot from working properly, that being said these settings will not be accessible, simply unpin gaming Copilot and it wont popup anymore
->
-
-If you use Xbox Game Bar check and disable all the gaming Copilot privacy settings
-
-- Disable all the following settings found here:
-
-<img width="835" height="460" alt="image" src="https://github.com/user-attachments/assets/316e1eaf-f75e-45b2-91f1-9535198dc6e5" />
-
-
 ### OneDrive AI 
 
 If you use OneDrive (not recommended) there is an AI feature to scan images for facial recognition, you can find this setting by going to `Settings > Privacy and permissions > Features > People Section`

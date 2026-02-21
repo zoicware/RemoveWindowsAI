@@ -22,6 +22,8 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
    - Disable Voice Access
    - Disable AI Voice Effects
    - Disable AI in Settings Search
+   - Disable Gaming Copilot
+   - Disable Copilot in All Office Apps
  - **Prevent Reinstall of AI Packages**
    - Installs custom Windows Update package to prevent reinstall of AI packages in the CBS (Component-Based Servicing) store 
  - **Disable Copilot policies** 
