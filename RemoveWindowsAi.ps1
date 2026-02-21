@@ -997,6 +997,7 @@ function Disable-Registry-Keys {
     #disable gaming copilot 
     #found from: https://github.com/meetrevision/playbook/issues/197
     #not sure this really does anything in my testing gaming copilot still appears 
+    <#
     if ($revert) {
         $command = "reg delete 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /f"
         Run-Trusted -command $command -psversion $psversion
@@ -1006,6 +1007,47 @@ function Disable-Registry-Keys {
     reg add 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /v 'Server' /t REG_SZ /d `" `" /f
     "
         Run-Trusted -command $command -psversion $psversion
+    }
+    #>
+    
+    if (!$revert) {
+        #better method by setting the gaming copilot widget to false in the xbox overlay settings json file
+        #to make this actually work gamebar service needs to be restarted 
+        $overlaySettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.XboxGamingOverlay_8wekyb3d8bbwe\LocalState\profileDataSettings.txt"
+        if (Test-Path $overlaySettingsPath) {
+            Write-Status -msg 'Disabling Gaming Copilot...'
+            Get-Process '*gamebar*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue 
+            try {
+                $content = Get-Content $overlaySettingsPath -Raw -ErrorAction Stop
+                $jsonObj = ConvertFrom-Json $content -ErrorAction Stop
+
+                $hasGamingCopilot = $jsonObj.profile.settingsStorage | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like '*GamingCompanionWidget*' }
+                if ($hasGamingCopilot) {
+                    #get all the properties for gaming copilot (there can be different ones for some users so we cant just hardcode this)
+                    #set all found properties to false besides suppressFirstFavorite
+                    $props = $jsonObj.profile.settingsStorage.$($hasGamingCopilot.Name) | Get-Member -MemberType NoteProperty
+                    foreach ($prop in $props) {
+                        if ($prop.Name -eq 'suppressFirstFavorite') {
+                            #this prop needs to be true to hide from favorites
+                            $jsonObj.profile.settingsStorage.$($hasGamingCopilot.Name).$($prop.Name) = $true
+                        }
+                        else {
+                            $jsonObj.profile.settingsStorage.$($hasGamingCopilot.Name).$($prop.Name) = $false
+                        }
+                    }
+
+                    $newContent = ConvertTo-Json $jsonObj -Depth 10 -Compress #compress here to match og formatting for this file
+                    Set-Content $overlaySettingsPath -Value $newContent -Force
+                }
+                else {
+                    Write-Status -msg 'GamingCompanionWidget NOT Found in profileDataSettings.txt! Skipping...' -errorOutput
+                }
+            }
+            catch {
+                Write-Error $_
+                Write-Status -msg 'Unable to Disable Gaming Copilot!' -errorOutput
+            }
+        }
     }
     
 
