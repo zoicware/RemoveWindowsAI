@@ -1642,10 +1642,6 @@ foreach ($choice in $aipackages) {
         New-Item "$store\Deprovisioned\$PackageFamilyName" -force
      
         Set-NonRemovableAppsPolicy -Online -PackageFamilyName $PackageFamilyName -NonRemovable 0
-       
-        foreach ($sid in $users) { 
-            New-Item "$store\EndOfLife\$sid\$PackageName" -force
-        }  
         remove-appxprovisionedpackage -packagename $PackageName -online -allusers
     }
     foreach ($appx in $($appxpackage | Where-Object { $_.PackageFullName -like "*$choice*" })) {
@@ -1658,17 +1654,18 @@ foreach ($choice in $aipackages) {
         #remove inbox apps
         $inboxApp = "$store\InboxApplications\$PackageFullName"
         Remove-Item -Path $inboxApp -Force
-       
+
         #get all installed user sids for package due to not all showing up in reg
         foreach ($user in $appx.PackageUserInformation) { 
             $sid = $user.UserSecurityID.SID
-            if ($users -notcontains $sid) {
-                $users += $sid
-            }
-            New-Item "$store\EndOfLife\$sid\$PackageFullName" -force
+            New-Item "$store\EndOfLife\$sid\$PackageFullName" -force -verbose
             remove-appxpackage -package $PackageFullName -User $sid 
         } 
         remove-appxpackage -package $PackageFullName -allusers
+
+        foreach ($sid in $users) { 
+            New-Item "$store\EndOfLife\$sid\$PackageFullName" -force
+        }  
     }
 }
 '@
