@@ -443,6 +443,12 @@ function Set-UwpAppRegistryEntry {
             'TextInputHost'
             'VisualAssistExe'
             'WebExperienceHostApp'
+            'WindowsMigration'
+            'WindowsBackupClient'
+            'SoftLandingTask'
+            'DesktopStickerEditorWin32Exe'
+            'CrossDeviceResume'
+            'DiscoveryHubApp'
         )
         Stop-Process -Name $ProcessToStop -Force -ErrorAction SilentlyContinue 
         # do while is needed here because wait-process in this case is not working maybe cause its just a trash function lol
