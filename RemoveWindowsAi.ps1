@@ -1570,12 +1570,10 @@ function Remove-AI-Appx-Packages {
             'WindowsWorkload.ImageContentModeration.Data.*'
             'WindowsWorkload.ImageSearch.Data.*'
             'WindowsWorkload.ImageSearch.Stx.*'
-            'WindowsWorkload.ImageSearch.Stx.*'
             'WindowsWorkload.ImageTextSearch.Data.*'
             'WindowsWorkload.PSOnnxRuntime.Stx.*'
             'WindowsWorkload.PSTokenizerShared.Data.*'
             'WindowsWorkload.PSTokenizerShared.Stx.*'
-            'WindowsWorkload.ImageTextSearch.Stx.*'
             'WindowsWorkload.ImageTextSearch.Stx.*'
         )
 
