@@ -1031,6 +1031,9 @@ function Disable-Registry-Keys {
                             #this prop needs to be true to hide from favorites
                             $jsonObj.profile.settingsStorage.$($hasGamingCopilot.Name).$($prop.Name) = $true
                         }
+                        elseif ($prop.Name -eq 'suppressFirstLaunch') {
+                            $jsonObj.profile.settingsStorage.$($hasGamingCopilot.Name).$($prop.Name) = $true
+                        }
                         else {
                             $jsonObj.profile.settingsStorage.$($hasGamingCopilot.Name).$($prop.Name) = $false
                         }
