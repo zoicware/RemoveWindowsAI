@@ -1038,7 +1038,10 @@ function Disable-Registry-Keys {
                             $jsonObj.profile.settingsStorage.$($hasGamingCopilot.Name).$($prop.Name) = $false
                         }
                     }
-
+                    #this prop isnt added to the json till the user views settings in gamebar so add the prop and set to false
+                    #hide gaming copilot from widgets menu
+                    $jsonObj.profile.settingsStorage.$($hasGamingCopilot.Name) | Add-Member -NotePropertyName 'homeMenuVisibleUser' -NotePropertyValue $false -Force
+                    
                     $newContent = ConvertTo-Json $jsonObj -Depth 10 -Compress #compress here to match og formatting for this file
                     Set-Content $overlaySettingsPath -Value $newContent -Force
                 }
