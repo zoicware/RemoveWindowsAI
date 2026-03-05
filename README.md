@@ -40,6 +40,8 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  - **Disable Rewrite AI Feature in Notepad**
  - **Remove Recall Tasks**
    - Forcibly removes all instances of Recall's scheduled tasks
+  - **Update Cleanup Check**
+     - Creates scheduled task to check if Windows has been updated and if it has, newly installed AI features will be removed
 
  - #### Install Classic Apps
    - These options will allow you to replace the modern AI infested apps with their classic version
@@ -115,6 +117,7 @@ RemoveAIFiles
 HideAIComponents            
 DisableRewrite      
 RemoveRecallTasks
+UpdateCleanupCheck
 ```
 
 **Run Install Classic Apps**

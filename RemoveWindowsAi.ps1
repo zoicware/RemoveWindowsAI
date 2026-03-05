@@ -10,7 +10,8 @@ param(
         'RemoveAIFiles',               
         'HideAIComponents',            
         'DisableRewrite',       
-        'RemoveRecallTasks')]
+        'RemoveRecallTasks',
+        'UpdateCleanupCheck')]
     [array]$Options,
     [switch]$AllOptions,
     [switch]$revertMode,
@@ -2570,6 +2571,81 @@ Get-ScheduledTask -TaskName "*Office Actions Server*" -ErrorAction SilentlyConti
     
 }
 
+
+
+function Update-Cleanup-Check {
+    
+    if (!$revert) {
+        #fastest method to get majorbuild.updateBuildRevision ex. 26200.7922
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
+        $OSBuild = "$($key.GetValue('CurrentBuild')).$($key.GetValue('UBR'))"
+        $key.Close()
+        #attempt to get cached build incase user has already cached one before but is no longer accurate somehow
+        try {
+            $key2 = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\RemoveWindowsAI')
+            $CurrentCachedBuild = "$($key2.GetValue('CachedBuild'))"
+            $key2.Close()
+        }
+        catch {
+            $CurrentCachedBuild = $null
+        }
+
+        #cache current build before making update script in regitry if the script detects and update as happened the cachedbuild value will be updated
+        $regValName = 'CachedBuild'
+        if ($CurrentCachedBuild -ne $OSBuild) {
+            Write-Status -msg 'Caching Current OS Build in Registry...' 
+            Reg.exe add 'HKLM\SOFTWARE\RemoveWindowsAI' /v $regValName /d "$OSBuild" /t REG_SZ /f >$null
+        }
+
+        #grab update cleanup script from github instead of embedding it in here
+        try {
+            Write-Status -msg 'Attempting to get Update Cleanup script from Github...'
+            $scriptContent = Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/refs/heads/main/RemoveAI-UpdateCleanup.ps1' -UseBasicParsing -ErrorAction Stop | Select-Object Content
+        }
+        catch {
+            Write-Status -msg 'Unable to get Update Cleanup script from Github!' -errorOutput
+            return
+        }
+
+        #create script
+        $scriptPath = "$env:ProgramData\RemoveAI-UpdateCleanup.ps1"
+        Set-Content -Path $scriptPath -Value $scriptContent.Content -Force
+
+        #create silent script so that there is no powershell window flash for the user
+        $vbsScriptContent = @"
+Dim shell,command
+command = "powershell.exe -ep bypass -c ""$env:ProgramData\RemoveAI-UpdateCleanup.ps1"""
+Set shell = CreateObject("WScript.Shell")
+shell.Run command,0
+"@
+        $vbsPath = "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.vbs"
+        Set-Content -Path $vbsPath -Value $vbsScriptContent -Force
+
+        Write-Status -msg 'Creating Update Cleanup Scheduled Task...'
+        $userSid = (Get-LocalUser -Name $env:USERNAME).SID.Value
+        $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.vbs"
+        $trigger = New-ScheduledTaskTrigger -AtLogOn
+        $principal = New-ScheduledTaskPrincipal -UserId $userSid -LogonType ServiceAccount -RunLevel Highest
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries 
+        #create update cleanup checker task
+        Register-ScheduledTask -TaskName 'RemoveAI-UpdateCleanupChecker' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+        
+    }
+    else {
+        Write-Status -msg 'Removing Update Cleanup Script and Task...'
+        Unregister-ScheduledTask -TaskName 'RemoveAI-UpdateCleanupChecker' -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-Item "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.vbs" -ErrorAction SilentlyContinue -Force
+        Remove-Item "$env:ProgramData\RemoveAI-UpdateCleanup.ps1" -ErrorAction SilentlyContinue -Force
+    }
+
+    
+}
+
+#===============================================================================================================================
+#
+#                                             CLASSIC APP INSTALL FUNCTIONS
+#
+#===============================================================================================================================
 function install-photoviewer {
     
     #restore classic photoviewer
@@ -2970,6 +3046,7 @@ if ($nonInteractive) {
         Hide-AI-Components 
         Disable-Notepad-Rewrite 
         Remove-Recall-Tasks 
+        Update-Cleanup-Check
     }
     else {
         #loop through options array and run desired tweaks
@@ -2984,6 +3061,7 @@ if ($nonInteractive) {
             'HideAIComponents' { Hide-AI-Components }
             'DisableRewrite' { Disable-Notepad-Rewrite }
             'RemoveRecallTasks' { Remove-Recall-Tasks }
+            'UpdateCleanupCheck' { Update-Cleanup-Check }
         }
     }
 
@@ -3010,6 +3088,7 @@ else {
         'Hide-AI-Components'             = 'Hides AI components in Windows Settings by modifying the SettingsPageVisibility policy to prevent user access to AI settings.'
         'Disable-Notepad-Rewrite'        = 'Disables the AI Rewrite feature in Windows Notepad through registry modifications and group policy settings.'
         'Remove-Recall-Tasks'            = 'Removes Recall-related scheduled tasks from the Windows Task Scheduler to prevent AI data collection processes from running.'
+        'Update-Cleanup-Check'           = 'Creates a silent scheduled task to run at log-on to check if Windows has been updated... if it has then the script will cleanup newly installed AI features'
     }
 
     $window = New-Object System.Windows.Window
@@ -3146,7 +3225,8 @@ else {
         'Remove-AI-Files'               
         'Hide-AI-Components'            
         'Disable-Notepad-Rewrite'       
-        'Remove-Recall-Tasks'           
+        'Remove-Recall-Tasks'
+        'Update-Cleanup-Check'          
     )
 
     foreach ($func in $functions) {
@@ -3809,6 +3889,7 @@ else {
                         'Hide-AI-Components' { Hide-AI-Components }
                         'Disable-Notepad-Rewrite' { Disable-Notepad-Rewrite }
                         'Remove-Recall-Tasks' { Remove-Recall-Tasks }
+                        'Update-Cleanup-Check' { Update-Cleanup-Check }
                         'Install-Classic-Photoviewer' { install-classicapps -app 'photoviewer' }
                         'Install-Classic-Mspaint' { install-classicapps -app 'mspaint' }
                         'Install-Classic-SnippingTool' { install-classicapps -app 'snippingtool' }
