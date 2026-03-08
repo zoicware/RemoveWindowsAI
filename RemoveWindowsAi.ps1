@@ -2622,7 +2622,8 @@ shell.Run command,0
         Set-Content -Path $vbsPath -Value $vbsScriptContent -Force
 
         Write-Status -msg 'Creating Update Cleanup Scheduled Task...'
-        $userSid = (Get-LocalUser -Name $env:USERNAME).SID.Value
+        #$userSid = (Get-LocalUser -Name $env:USERNAME).SID.Value
+        $userSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
         $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.vbs"
         $trigger = New-ScheduledTaskTrigger -AtLogOn
         $principal = New-ScheduledTaskPrincipal -UserId $userSid -LogonType ServiceAccount -RunLevel Highest
