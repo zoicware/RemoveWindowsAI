@@ -2563,9 +2563,10 @@ Get-ScheduledTask -TaskName "*Office Actions Server*" -ErrorAction SilentlyConti
         
         #when just running this option alone the tasks will be remade so we need to at least ensure they are disabled
         $command = "
-        Get-ScheduledTask -TaskName '*Office Actions Server*' -ErrorAction SilentlyContinue | Disable-ScheduledTask -ErrorAction SilentlyContinue
-        Get-ScheduledTask -TaskPath '*WindowsAI*' | Disable-ScheduledTask -ErrorAction SilentlyContinue
+        Get-ScheduledTask -TaskName '*Office Actions Server*' -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:`$false -ErrorAction SilentlyContinue
+        Get-ScheduledTask -TaskPath '*WindowsAI*' | Unregister-ScheduledTask -Confirm:`$false -ErrorAction SilentlyContinue
         "
+        
         Run-Trusted -command $command -psversion $psversion
         
     }
