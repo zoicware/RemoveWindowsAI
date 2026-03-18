@@ -2406,16 +2406,15 @@ function Remove-AI-Files {
 
         $jobs = foreach ($dir in $dirs) {
             $rs = [powershell]::Create().AddScript({
-                    param($path, $aiKeyWords)
-                    Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object { 
+                    param($dir, $aiKeyWords)
+                    (Get-ChildItem $dir -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { 
                         $_.FullName -like "*$($aiKeyWords[0])*" -or 
                         $_.FullName -like "*$($aiKeyWords[1])*" -or 
                         $_.FullName -like "*$($aiKeyWords[2])*" -or
                         $_.FullName -like "*$($aiKeyWords[3])*" -or
-                        $_.FullName -like "*$($aiKeyWords[4])*" -and
-                        $(Test-Path $_.FullName -PathType Container) -eq $true 
-                    }
-                }).AddParameter('path', $path).AddParameter('aiKeyWords', $aiKeyWords)
+                        $_.FullName -like "*$($aiKeyWords[4])*"
+                    }).FullName
+                }).AddParameter('dir', $dir).AddParameter('aiKeyWords', $aiKeyWords)
     
             [pscustomobject]@{
                 Runspace = $rs
