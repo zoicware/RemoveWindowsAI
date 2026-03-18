@@ -2404,22 +2404,33 @@ function Remove-AI-Files {
 
         }
 
-        foreach ($dir in $dirs) {
-            Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object { 
-                $_.FullName -like "*$($aiKeyWords[0])*" -or 
-                $_.FullName -like "*$($aiKeyWords[1])*" -or 
-                $_.FullName -like "*$($aiKeyWords[2])*" -or
-                $_.FullName -like "*$($aiKeyWords[3])*" -or
-                $_.FullName -like "*$($aiKeyWords[4])*" -and
-                $(Test-Path $_.FullName -PathType Container) -eq $true 
-            } | ForEach-Object {
-                #add paths to txt to delete with trusted installer
-                Add-Content "$($tempDir)PathsToDelete.txt" -Value $_.FullName | Out-Null
-            } 
+        $jobs = foreach ($dir in $dirs) {
+            $rs = [powershell]::Create().AddScript({
+                    param($path, $aiKeyWords)
+                    Get-ChildItem $dir -Recurse -ErrorAction SilentlyContinue | Where-Object { 
+                        $_.FullName -like "*$($aiKeyWords[0])*" -or 
+                        $_.FullName -like "*$($aiKeyWords[1])*" -or 
+                        $_.FullName -like "*$($aiKeyWords[2])*" -or
+                        $_.FullName -like "*$($aiKeyWords[3])*" -or
+                        $_.FullName -like "*$($aiKeyWords[4])*" -and
+                        $(Test-Path $_.FullName -PathType Container) -eq $true 
+                    }
+                }).AddParameter('path', $path).AddParameter('aiKeyWords', $aiKeyWords)
+    
+            [pscustomobject]@{
+                Runspace = $rs
+                Handle   = $rs.BeginInvoke()
+            }
         }
-        
-        
-        $command = "Get-Content `"$($tempDir)PathsToDelete.txt`" | ForEach-Object {Remove-Item `$_ -Force -Recurse -EA 0}"
+
+        $pathsToDelete = foreach ($job in $jobs) {
+            $job.Runspace.EndInvoke($job.Handle)
+            $job.Runspace.Dispose()
+        }
+
+        Set-Content "$($tempDir)PathsToDelete.txt" -Value $pathsToDelete -Force | Out-Null
+
+        $command = "Get-Content `"$($tempDir)PathsToDelete.txt`"  | ForEach-Object { Remove-Item `$_ -Force -Recurse -EA 0 }"
         Run-Trusted -command $command -psversion $psversion
         Start-Sleep 1
     }
