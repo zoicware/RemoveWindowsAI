@@ -1993,55 +1993,64 @@ function Remove-AI-Files {
         if (!(Test-Path $appsPath6)) {
             $appsPath6 = "$env:windir\SystemApps\SxS"
         }
-        $pathsSystemApps = (Get-ChildItem -Path $appsPath -Directory -Force -ErrorAction SilentlyContinue).FullName 
-        $pathsWindowsApps = (Get-ChildItem -Path $appsPath2 -Directory -Force -ErrorAction SilentlyContinue).FullName 
-        $pathsAppRepo = (Get-ChildItem -Path $appsPath3 -Directory -Force -Recurse -ErrorAction SilentlyContinue).FullName 
-        $pathsServicing = (Get-ChildItem -Path $appsPath4 -Directory -Force -Recurse -ErrorAction SilentlyContinue).FullName
-        $pathsCatRoot = (Get-ChildItem -Path $appsPath5 -Directory -Force -Recurse -ErrorAction SilentlyContinue).FullName 
-        $pathsSXS = (Get-ChildItem -Path $appsPath6 -Directory -Force -ErrorAction SilentlyContinue).FullName 
+
+        $paths = @(
+            $appsPath,
+            $appsPath2,
+            $appsPath3,
+            $appsPath6
+        )
+
+        $jobs = foreach ($path in $paths) {
+            $rs = [powershell]::Create().AddScript({
+                    param($path)
+                    (Get-ChildItem -Path $path -Directory -Force -ErrorAction SilentlyContinue).FullName  
+                }).AddParameter('path', $path)
+    
+            [pscustomobject]@{
+                Runspace = $rs
+                Handle   = $rs.BeginInvoke()
+            }
+        }
+
+        $fullPaths = foreach ($job in $jobs) {
+            $job.Runspace.EndInvoke($job.Handle)
+            $job.Runspace.Dispose()
+        }
+
 
         $packagesPath = @()
-        #get full path
         foreach ($package in $aipackages) {
-    
-            foreach ($path in $pathsSystemApps) {
+            foreach ($path in $fullPaths) {
                 if ($path -like "*$package*") {
                     $packagesPath += $path
                 }
             }
-    
-            foreach ($path in $pathsWindowsApps) {
-                if ($path -like "*$package*") {
-                    $packagesPath += $path
-                }
-            }
-    
-            foreach ($path in $pathsAppRepo) {
-                if ($path -like "*$package*") {
-                    $packagesPath += $path
-                }
-            }
+        }
 
-            foreach ($path in $pathsSXS) {
-                if ($path -like "*$package*") {
-                    $packagesPath += $path
-                }
-            }
+        $paths = @($appsPath4, $appsPath5)
+        $jobs = foreach ($path in $paths) {
+            $rs = [powershell]::Create().AddScript({
+                    param($path)
+                    (Get-ChildItem -Path $path -Directory -Force -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -like '*UserExperience-AIX*' -or 
+                        $_.FullName -like '*Copilot*' -or 
+                        $_.FullName -like '*UserExperience-Recall*' -or 
+                        $_.FullName -like '*CoreAI*' 
+                    }).FullName
+                }).AddParameter('path', $path)
     
-        }
-    
-        #get additional files
-        foreach ($path in $pathsServicing) {
-            if ($path -like '*UserExperience-AIX*' -or $path -like '*Copilot*' -or $path -like '*UserExperience-Recall*' -or $path -like '*CoreAI*') {
-                $packagesPath += $path
-            }
-        }
-    
-        foreach ($path in $pathsCatRoot) {
-            if ($path -like '*UserExperience-AIX*' -or $path -like '*Copilot*' -or $path -like '*UserExperience-Recall*' -or $path -like '*CoreAI*') {
-                $packagesPath += $path
+            [pscustomobject]@{
+                Runspace = $rs
+                Handle   = $rs.BeginInvoke()
             }
         }
+
+        $packagesPath += foreach ($job in $jobs) {
+            $job.Runspace.EndInvoke($job.Handle)
+            $job.Runspace.Dispose()
+        }
+
 
         #add app actions mcp host
         $paths = @(
@@ -2098,10 +2107,9 @@ function Remove-AI-Files {
             }
             $command = "Remove-item ""$Path"" -force -recurse"
             Run-Trusted -command $command -psversion $psversion
-            Start-Sleep 1
-        
+           
         }
-    
+
         #remove machine learning dlls
         $paths = @(
             "$env:SystemRoot\System32\Windows.AI.MachineLearning.dll"
@@ -3950,6 +3958,7 @@ else {
                 'WebViewHost.exe'
                 'aimgr.exe'
                 'AppActions.exe'
+                'M365Copilot.exe'
             )
             foreach ($procName in $aiProcesses) {
                 taskkill /im $procName /f *>$null
