@@ -283,6 +283,84 @@ function Write-Status {
     
 }
 
+# Source - https://stackoverflow.com/a/42792718
+# Posted by Krisz, modified by community. See post 'Timeline' for change history
+# Retrieved 2026-03-24, License - CC BY-SA 4.0
+
+$QuickEditCodeSnippet = @'
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+
+ 
+public static class DisableConsoleQuickEdit{
+ 
+const uint ENABLE_QUICK_EDIT = 0x0040;
+
+// STD_INPUT_HANDLE (DWORD): -10 is the standard input device.
+const int STD_INPUT_HANDLE = -10;
+
+[DllImport("kernel32.dll", SetLastError = true)]
+static extern IntPtr GetStdHandle(int nStdHandle);
+
+[DllImport("kernel32.dll")]
+static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+
+[DllImport("kernel32.dll")]
+static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+
+public static bool SetQuickEdit(bool SetEnabled){
+
+    IntPtr consoleHandle = GetStdHandle(STD_INPUT_HANDLE);
+
+    // get current console mode
+    uint consoleMode;
+    if (!GetConsoleMode(consoleHandle, out consoleMode)){
+        // ERROR: Unable to get console mode.
+        return false;
+    }
+
+    // Clear the quick edit bit in the mode flags
+    if (SetEnabled){
+        consoleMode &= ~ENABLE_QUICK_EDIT;
+    }
+    else{
+        consoleMode |= ENABLE_QUICK_EDIT;
+    }
+
+    // set the new mode
+    if (!SetConsoleMode(consoleHandle, consoleMode)){
+        // ERROR: Unable to set console mode
+        return false;
+    }
+
+    return true;
+}
+}
+'@
+
+Add-Type -TypeDefinition $QuickEditCodeSnippet -Language CSharp
+
+
+function Set-QuickEdit() {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false, HelpMessage = 'This switch will disable Console QuickEdit option')]
+        [switch]$DisableQuickEdit = $false
+    )
+
+
+    if ([DisableConsoleQuickEdit]::SetQuickEdit($DisableQuickEdit)) {
+        Write-Output 'QuickEdit settings has been updated.'
+    }
+    else {
+        Write-Output 'Something went wrong.'
+    }
+}
+
 #some users have messed with the system envrioment variables (for some reason) this breaks inline cmdlets like Reg.exe 
 #to fix this we can ensure the enviroment variable for this powershell session is set properly
 if ($env:PATH -notlike "*$env:SystemRoot\system32;*") {
@@ -293,8 +371,13 @@ if ($env:PATH -notlike "*$env:SystemRoot\system32;*") {
 
 #setup script
 #=====================================================================================
-
 Write-Host '~ ~ ~ Remove Windows AI by @zoicware ~ ~ ~' -ForegroundColor DarkCyan
+
+#disables quick edit just for this session 
+#since the quick edit setting is stored in the powershell shortcut file when ran from startmenu its not really possible to do it any other way
+#why: quick edit allows for highlighting the console text while a script is running causing it to pause until the user presses some key 
+#this is not clearly stated to the user causing confusion for some 
+Set-QuickEdit -DisableQuickEdit | Out-Null
 
 if ($EnableLogging) {
     $date = (Get-Date).ToString('MM-dd-yyyy-HH:mm') -replace ':'
