@@ -3453,21 +3453,17 @@ else {
         'Update-Cleanup-Check'          
     )
 
+    $unchecked = @(
+        'Remove-AI-Files'
+        'Remove-AI-CBS-Packages'
+        'Prevent-AI-Package-Reinstall'
+    )
+
     foreach ($func in $functions) {
         $optionContainer = New-Object System.Windows.Controls.DockPanel
         $optionContainer.Margin = '0,5,0,5'
         $optionContainer.LastChildFill = $false
-    
-        $checkbox = New-Object System.Windows.Controls.CheckBox
-        $checkbox.Content = $func.Replace('-', ' ')
-        $checkbox.FontSize = 14
-        $checkbox.Foreground = [System.Windows.Media.Brushes]::White
-        $checkbox.Margin = '0,0,10,0'
-        $checkbox.VerticalAlignment = 'Center'
-        $checkbox.IsChecked = $true
-        [System.Windows.Controls.DockPanel]::SetDock($checkbox, 'Left')
-        $checkboxes[$func] = $checkbox
-    
+
         $infoButton = New-Object System.Windows.Controls.Button
         $infoButton.Content = '?'
         $infoButton.Width = 25
@@ -3481,7 +3477,7 @@ else {
         $infoButton.VerticalAlignment = 'Center'
         $infoButton.Cursor = 'Hand'
         [System.Windows.Controls.DockPanel]::SetDock($infoButton, 'Right')
-    
+
         $infoTemplate = @'
 <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="Button">
     <Border Background="{TemplateBinding Background}" 
@@ -3493,7 +3489,7 @@ else {
 </ControlTemplate>
 '@
         $infoButton.Template = [System.Windows.Markup.XamlReader]::Parse($infoTemplate)
-    
+
         $infoButton.Add_Click({
                 param($sender, $e)
                 $funcName = $functions | Where-Object { $checkboxes[$_] -eq $optionContainer.Children[0] }
@@ -3516,8 +3512,53 @@ else {
                 [System.Windows.MessageBox]::Show($description, $funcName, [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
             })
     
-        $optionContainer.Children.Add($checkbox) | Out-Null
+        $checkboxPanel = New-Object System.Windows.Controls.StackPanel
+        $checkboxPanel.Orientation = 'Horizontal'
+        $checkboxPanel.VerticalAlignment = 'Center'
+
+        $checkboxLabel = New-Object System.Windows.Controls.TextBlock
+        $checkboxLabel.Text = $func.Replace('-', ' ')
+        $checkboxLabel.FontSize = 14
+        $checkboxLabel.Foreground = [System.Windows.Media.Brushes]::White
+        $checkboxLabel.VerticalAlignment = 'Center'
+        $checkboxPanel.Children.Add($checkboxLabel) | Out-Null
+
+        if ($unchecked -contains $func) {
+            $warningIcon = New-Object System.Windows.Controls.TextBlock
+            $warningIcon.Text = ' ⚠'
+            $warningIcon.FontSize = 14
+            $warningIcon.Foreground = [System.Windows.Media.SolidColorBrush]::new(
+                [System.Windows.Media.Color]::FromRgb(255, 180, 0))
+            $warningIcon.VerticalAlignment = 'Center'
+            $warningIcon.Cursor = 'Arrow'
+
+            $tooltip = New-Object System.Windows.Controls.ToolTip
+            $tooltip.Content = 'Warning: This option may break Windows Update'
+            $tooltip.Background = [System.Windows.Media.SolidColorBrush]::new(
+                [System.Windows.Media.Color]::FromRgb(60, 30, 0))
+            $tooltip.Foreground = [System.Windows.Media.Brushes]::Yellow
+            $tooltip.FontSize = 11
+            $tooltip.BorderBrush = [System.Windows.Media.SolidColorBrush]::new(
+                [System.Windows.Media.Color]::FromRgb(180, 100, 0))
+            $tooltip.BorderThickness = 1
+            $tooltip.Padding = '6,4,6,4'
+            $warningIcon.ToolTip = $tooltip
+
+            $checkboxPanel.Children.Add($warningIcon) | Out-Null
+        }
+
+        $checkbox = New-Object System.Windows.Controls.CheckBox
+        $checkbox.Content = $checkboxPanel
+        $checkbox.FontSize = 14
+        $checkbox.Foreground = [System.Windows.Media.Brushes]::White
+        $checkbox.Margin = '0,0,10,0'
+        $checkbox.VerticalAlignment = 'Center'
+        $checkbox.IsChecked = if ($unchecked -notcontains $func) { $true } else { $false }
+        [System.Windows.Controls.DockPanel]::SetDock($checkbox, 'Left')
+        $checkboxes[$func] = $checkbox
+
         $optionContainer.Children.Add($infoButton) | Out-Null
+        $optionContainer.Children.Add($checkbox) | Out-Null
         $stackPanel.Children.Add($optionContainer) | Out-Null
     }
 
