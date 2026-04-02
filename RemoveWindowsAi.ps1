@@ -3104,7 +3104,38 @@ function install-classicapps {
         $classicApps = "$($tempDir)ClassicApps"
     }
 
+    #verify binaries
+    $exes = (Get-ChildItem $classicApps -Filter '*.exe' -Recurse).FullName
+    $paintDetails = [PSCustomObject]@{
+        InternalName     = 'MSPAINT'
+        OriginalFilename = 'MSPAINT.EXE'
+        FileVersion      = '10.0.26100.7309 (WinBuild.160101.0800)'
+        FileDescription  = 'Paint'
+        LegalCopyright   = '© Microsoft Corporation. All rights reserved.'
+        CompanyName      = 'Microsoft Corporation'
+    }
+    $snippingDetails = [PSCustomObject]@{
+        InternalName     = 'SnippingTool'
+        OriginalFilename = 'SnippingTool.exe'
+        FileVersion      = '10.0.26100.7309 (WinBuild.160101.0800)'
+        FileDescription  = 'Snipping Tool'
+        LegalCopyright   = '© Microsoft Corporation. All rights reserved.'
+        CompanyName      = 'Microsoft Corporation'
+    }
+    foreach ($exe in $exes) {
+        $exeDetails = (Get-Item "$exe").VersionInfo | Select-Object InternalName, OriginalFilename, FileVersion, FileDescription, LegalCopyright, CompanyName
+        #compare object returns null when objects match so we need -not for this to make more sense 
+        $matchesPaint = -not (Compare-Object $exeDetails $paintDetails -Property $exeDetails.PSObject.Properties.Name)
+        $matchesSnipping = -not (Compare-Object $exeDetails $snippingDetails -Property $exeDetails.PSObject.Properties.Name)
+        if (!$matchesPaint -and !$matchesSnipping) {
+            Write-Status -msg 'Downloaded binary details do not match whats expected... removing files and aborting!' -errorOutput
+            Remove-Item $classicApps -Force -Recurse
+            return
+        }
 
+    }
+
+   
     switch ($app) {
         'photoviewer' {  
             Write-Status -msg 'Installing Classic Photo Viewer...'
