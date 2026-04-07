@@ -76,9 +76,9 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1")))
  ```
  ### Compact Command:
- ##### Link shortened using open source link shortener: https://kutt.it/
+ ##### Link shortened using open source link shortener: https://kutt.to/
  ```PowerShell
- & ([scriptblock]::Create((irm 'https://kutt.it/RWAI')))
+ & ([scriptblock]::Create((irm 'https://kutt.to/RWAI')))
  ```
 
 
