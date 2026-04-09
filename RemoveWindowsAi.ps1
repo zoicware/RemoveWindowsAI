@@ -590,16 +590,17 @@ function Set-UwpAppRegistryEntry {
     
         # build registry content
         if ($InputObject.Path) {
-            $RegKey = $InputObject.Path
+            $RegKey = "$($AppSettingsRegPath)\$($InputObject.Path)"
         }
         else {
-            $RegKey = 'LocalState'
+            $RegKey = (Get-ChildItem "registry::$AppSettingsRegPath" -Recurse | Where-Object { $_.pschildname -like '*Evoke' }).Name
         }
-        $RegContent += "`n[$AppSettingsRegPath\$RegKey]
+        $RegContent += "`n[$RegKey]
         ""$($InputObject.Name)""=hex($($InputObject.Type)):$Value,$Timestamp`n" -replace '(?m)^ *'
     }
 
     end {
+        [gc]::Collect()
         $SettingRegFilePath = "$($tempDir)uwp_app_settings.reg"
         $RegContent | Out-File -FilePath $SettingRegFilePath
 
@@ -1160,9 +1161,15 @@ function Disable-Registry-Keys {
     #disable ai setting in uwp photos app
     $uwpPhotosSettings = "$env:LOCALAPPDATA\Packages\Microsoft.Windows.Photos_8wekyb3d8bbwe\Settings\settings.dat"
     if (Test-Path $uwpPhotosSettings) {
+        Write-Status -msg "$(@('Disabling','Enabling')[$revert]) AI in Photos App..."
+        #need to open it once to make the settings.dat structure
+        Start-Process 'explorer.exe' 'shell:AppsFolder\Microsoft.Windows.Photos_8wekyb3d8bbwe!App' 
+        Start-Sleep 5
+        taskkill.exe /im Photos.exe /f *>$null
+        <#
         [GC]::Collect()
         reg.exe unload 'HKU\TEMP' *>$null
-        taskkill /im photos.exe /f *>$null
+        #taskkill /im photos.exe /f *>$null
         reg.exe load HKU\TEMP $uwpPhotosSettings >$null
         if (!$revert) {
             $regContent = @'
@@ -1193,8 +1200,110 @@ Windows Registry Editor Version 5.00
         Start-Sleep 1
         reg unload HKU\TEMP >$null
         Remove-Item "$($tempDir)DisableAIPhotos.reg" -Force -ErrorAction SilentlyContinue
+        #>
+
+        $photosSettingsBooleans = @(
+            'OneDriveOnlineSearchFallbackFilter-IsEnabled'
+            'ClipChampPromo-TeachingMoment-AlternateButtonBackground-IsEnabled'
+            'FileExplorer-ContextMenu-CreateWithDesigner-IsEnabled'
+            'ViewerOcr-IsEnabled'
+            'MoodboardIsEnabledIntel'
+            'ClipchampNewIconIsEnabled'
+            'WindowsIndexerSemanticSearchIsEnabledQCOM'
+            'RingTesterPublic'
+            'DuplicateVideoProject'
+            'EditHVC-BackgroundBlur-IsEnabled'
+            'Designer-NewIcon-IsEnabled'
+            'StoryBuilder-FX-3DEffectsInAppBar'
+            'EditHVC-Stylizer-IsEnabled-LNL'
+            'SDXL-IsEnabled'
+            'ViewerCopilotOnContextMenu-IsEnabled'
+            'EditHVC-AIBadges-IsEnabled'
+            'EditHVCSuperResolutionIsEnabledQCOM'
+            'EditHVCStylizerIsEnabledQCOM'
+            'MoodboardIsEnabledAMD'
+            'EditHVC-Win10-BackgroundBlur-IsEnabled'
+            'ViewerOcr-SearchInWeb-IsEnabled'
+            'StoryBuilder-CreateDropdownUpdate-Enabled'
+            'LocationSearch-IsEnabled'
+            'StoryBuilder-AddNewSimpleTextStyles'
+            'ImageCategorizationIsEnabledAMD'
+            'StoryBuilder-ExportFlow-Variant'
+            'OneDriveOnlineSearch-IsEnabled'
+            'EditHVCSuperResolutionIsEnabledAMD'
+            'StoryBuilder-Report-ExportIssues-IsEnabled'
+            'Collections-ShowFolderAndSubfoldersFeature-IsEnabled'
+            'StoryBuilder-CreateDropdown-NewStrings'
+            'MoodboardIsEnabledQCOM'
+            'ClipChampPromo-MTCButtonAlternateToolTip-IsEnabled'
+            'DesignerEditor-SupportAllLanguages'
+            'EditHVC-UseSpotFixWhenGenerativeEraseAreaIsSmall-IsEnabled'
+            'Moodboard-IsEnabled'
+            'StoryBuilder-CreateDropdown-ReorderVideoButtons'
+            'StoryBuilder-AudioRoaming'
+            'StoryBuilder-CardEdit-TimeableText'
+            'Gallery-SplashScreen-IsEnabled'
+            'Designer-IsEnabled'
+            'VO-UnifiedAudioButton'
+            'EditHVCRelightIsEnabledQCOM'
+            'UnifiedEditorOnV0-IsEnabled'
+            'RingTester'
+            'ClipChampPromo-ButtonAlternateText-IsEnabled'
+            'EditHVC-GenerativeErase-IsEnabled'
+            'EditHVC-Stylizer-IsEnabled'
+            'StoryBuilder-Rotate'
+            'Collections-ShowFolderAndSubfoldersDefault-IsEnabled'
+            'SpecialEffects-NewRemoveIcon'
+            'UserActivity-IsEnabled'
+            'OneDriveOnlineSearch-IndexWarming-IsEnabled'
+            'WindowsIndexerSemanticSearchIsEnabledIntel'
+            'EditHVC-Win10-GenerativeErase-IsEnabled'
+            'VideoProjects-ShowAllByDefault'
+            'WindowsIndexerSemanticSearchIsEnabledAMD'
+            'Moodboard-IsEnabled-STX'
+            'StoryBuilder-OnlineContentControl'
+            'ClipChampPromo_TeachingMomentAlternateText_IsEnabled'
+            'WindowsIndexerSearchIsEnabled'
+            'ClipChampPromo-OneUpViewer-TitleBarOverflow-ButtonHasDesc'
+            'OneDriveOnlineSearch_IsEnabled'
+            'OneDriveOnlineSearch_IndexWarming_IsEnabled'
+            'EditHVC-NewAutoEnhance-IsEnabled'
+            'ExternalFileDragAndDrop-IsEnabled'
+            'EditHVCStylizerIsEnabledAMD'
+            'EditHVC_BackgroundBlur_IsEnabled'
+            'StoryBuilder-RememberLastUsedTextStyleAndDefaultLayout'
+            'ImageCategorizationIsEnabledIntel'
+            'EditHVCSuperResolutionIsEnabledIntel'
+            'ClipChampPromo-PurpleIcon-IsEnabled'
+            'VideoEditorAppBarReorganization'
+            'ICloud-EmptyStatesExperimentV2-IsEnabled'
+            'VO-NewPage'
+            'EditHVC-SuperResolution-IsEnabled'
+            'ViewerBingVisualSearch-IsEnabled'
+            'WindowsIndexerSemanticSearchIsEnabledLNL'
+            'EditHVC-Stylizer-IsEnabled-STX'
+            'StoryBuilder-ReorderTextStyles'
+            'WindowsIndexerSemanticSearchIsEnabledSTX'
+            'SingleClick-IsEnabled'
+            'LocationSearch_IsEnabled'
+            'StoryBuilder-EmptyNewProject-Enabled'
+            'Moodboard-IsEnabled-LNL'
+            'EditHVCStylizerIsEnabledIntel'
+            'ImageCategorizationIsEnabledQCOM'
+            'ICloud-InWin10-IsEnabled'
+        )
+        foreach ($name in $photosSettingsBooleans) {
+            $setting = [PSCustomObject]@{
+                Name  = $name
+                Value = @('0', '1')[$revert] # 0 = disable    1 = enable
+                Type  = '5f5e10b'
+            }
+            $setting | Set-UwpAppRegistryEntry -FilePath $uwpPhotosSettings
+        }
     }
 
+    
+     
     #disable app actions
     #method credit : https://github.com/agadiffe/WindowsMize
     $settingsDat = "$env:LOCALAPPDATA\Packages\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\Settings\settings.dat"
@@ -1631,6 +1740,7 @@ function Remove-AI-Appx-Packages {
             'Microsoft.Office.ActionsServer'
             'aimgr'
             'Microsoft.WritingAssistant'
+            'Clipchamp.Clipchamp'
             #ai component packages installed on copilot+ pcs
             'MicrosoftWindows.*.Voiess'
             'MicrosoftWindows.*.Speion'
@@ -1690,6 +1800,7 @@ $aipackages = @(
     'Microsoft.Edge.GameAssist'
     'Microsoft.Office.ActionsServer'
     'aimgr'
+    'Clipchamp.Clipchamp'
     'Microsoft.WritingAssistant'
     'MicrosoftWindows.*.Voiess'
     'MicrosoftWindows.*.Speion'
