@@ -859,6 +859,21 @@ function Disable-Registry-Keys {
     # Reg.exe add "HKLM\SYSTEM\ControlSet001\Services\IsoEnvBroker" /v "Enabled" /t REG_DWORD /d "0" /f
     # leaving commented since its still only in preview builds
 
+    #disable paint ai experiment program
+    Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) AI Experiment Program In Paint..."
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'IsSignedUpForTargetingService' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'LeftTargetingService' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'IsNotInterestedInTargetingService' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    #additionals
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedWelcomePageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedStickerGeneratorPageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedGenerativeImageEditPageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedGenerativeErasePageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedGenerativeFillPageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedImageCreatorPageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedCocreatorPageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
+    
+
     #apply reg keys for default user to disable for any new users created
     #unload just incase
     [GC]::Collect()
