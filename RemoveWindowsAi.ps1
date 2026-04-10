@@ -611,6 +611,154 @@ function Set-UwpAppRegistryEntry {
     }
 }
 
+#function to edit group policies's pol file that contains all policies found in group policy editor 
+#this will update the ui to properly reflect what policies have been set to via reg
+function Edit-PolFile {
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('HKLM', 'HKCU')]
+        [string]$Hive,
+        [Parameter(Mandatory)]
+        [ValidateSet('Add', 'Delete')]
+        [string]$Action,
+        [Parameter(Mandatory)]
+        [string]$Key,
+        [Parameter(Mandatory)]
+        [string]$ValueName,
+        [ValidateSet('DWORD', 'SZ')]
+        [string]$Type,
+        [string]$Value
+    )
+
+    if ($Hive -eq 'HKLM') {
+        $PolPath = "$env:SYSTEMROOT\System32\GroupPolicy\Machine\Registry.pol"
+    }
+    else {
+        $PolPath = "$env:SYSTEMROOT\System32\GroupPolicy\User\Registry.pol"
+    }
+
+    #C# pol file reader/writer 
+    if (-not ([System.Management.Automation.PSTypeName]'PolHandler').Type) {
+        Add-Type -Language CSharp @'
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+
+public class PolRec {
+    public string Key;
+    public string ValueName;
+    public uint   Type;
+    public byte[] Data;
+}
+
+public static class PolHandler {
+
+    public static List<PolRec> Read(string f) {
+        var l = new List<PolRec>();
+        if (!File.Exists(f) || new FileInfo(f).Length < 8) return l;
+        try {
+            using (var br = new BinaryReader(File.OpenRead(f), Encoding.Unicode)) {
+                if (br.ReadUInt32() != 0x67655250 || br.ReadUInt32() != 1) return l;
+                while (br.BaseStream.Position < br.BaseStream.Length) {
+                    if (br.ReadChar() != '[') continue;
+                    var r = new PolRec { Key = RS(br) };
+                    if (br.ReadChar() != ';') break;
+                    r.ValueName = RS(br);
+                    if (br.ReadChar() != ';') break;
+                    r.Type = br.ReadUInt32();
+                    if (br.ReadChar() != ';') break;
+                    uint sz = br.ReadUInt32();
+                    if (br.ReadChar() != ';') break;
+                    if (br.BaseStream.Position + sz > br.BaseStream.Length) break;
+                    r.Data = br.ReadBytes((int)sz);
+                    if (br.ReadChar() != ']') break;
+                    l.Add(r);
+                }
+            }
+        } catch {}
+        return l;
+    }
+
+    public static void Write(string f, ICollection<PolRec> d) {
+        Directory.CreateDirectory(Path.GetDirectoryName(f));
+        using (var bw = new BinaryWriter(File.Open(f, FileMode.Create), Encoding.Unicode)) {
+            bw.Write((uint)0x67655250);
+            bw.Write((uint)1);
+            foreach (var r in d) {
+                bw.Write('[');
+                SS(bw, r.Key);       bw.Write(';');
+                SS(bw, r.ValueName); bw.Write(';');
+                bw.Write(r.Type);    bw.Write(';');
+                bw.Write((uint)r.Data.Length); bw.Write(';');
+                bw.Write(r.Data);
+                bw.Write(']');
+            }
+        }
+    }
+
+    private static string RS(BinaryReader br) {
+        var sb = new StringBuilder(); char c;
+        while ((c = br.ReadChar()) != 0) sb.Append(c);
+        return sb.ToString();
+    }
+
+    private static void SS(BinaryWriter bw, string v) {
+        bw.Write(v.ToCharArray());
+        bw.Write((char)0);
+    }
+}
+'@
+    }
+
+    #Load existing records into a dictionary to edit 
+    $policies = [System.Collections.Generic.Dictionary[string, PolRec]]::new(
+        [StringComparer]::OrdinalIgnoreCase
+    )
+    [PolHandler]::Read($PolPath) | ForEach-Object {
+        $policies["$($_.Key);$($_.ValueName)"] = $_
+    }
+
+    $dictKey = "$Key;$ValueName"
+
+    switch ($Action) {
+
+        'Add' {
+            if (-not $Type) { throw "'-Type' is required when Action is 'Add'" }
+            if (-not $Value -and $Value -ne '0') { throw "'-Value' is required when Action is 'Add'" }
+
+            $rec = [PolRec]::new()
+            $rec.Key = $Key
+            $rec.ValueName = $ValueName
+
+            if ($Type -eq 'DWORD') {
+                $rec.Type = 4
+                $rec.Data = [BitConverter]::GetBytes([uint32]::Parse($Value))
+            }
+            else {
+                $rec.Type = 1
+                $rec.Data = [Text.Encoding]::Unicode.GetBytes($Value + [char]0)
+            }
+
+            $policies[$dictKey] = $rec
+            Write-Verbose "Added/updated: $dictKey"
+        }
+
+        'Delete' {
+            if ($policies.Remove($dictKey)) {
+                Write-Verbose "Deleted: $dictKey"
+            }
+            else {
+                Write-Warning "Entry not found in .pol file: $dictKey"
+            }
+        }
+    }
+
+    #add updated dictionary back to pol file
+    $final = [System.Collections.Generic.List[PolRec]]::new($policies.Values)
+    [PolHandler]::Write($PolPath, $final)
+}
+
 function Disable-Registry-Keys {
     #maybe add params for particular parts
 
@@ -651,19 +799,59 @@ function Disable-Registry-Keys {
         Reg.exe delete 'HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData\Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe\WebViewHostStartupId' /f *>$null
         Reg.exe delete 'HKCU\Software\Microsoft\Copilot' /v 'WakeApp' /f *>$null
     }
-    
+
+    $aiPolicies = @()
+    $valueNamesHKLM = @(
+        'DisableAIDataAnalysis'
+        'AllowRecallEnablement'
+        'DisableClickToDo'
+        'TurnOffSavingSnapshots'
+        'DisableSettingsAgent'
+        'DisableAgentConnectors'
+        'DisableAgentWorkspaces'
+        'DisableRemoteAgentConnectors'
+    )
+    foreach ($name in $valueNamesHKLM) {
+        $obj = [PSCustomObject]@{
+            Name  = $name
+            Hive  = 'HKLM'
+            Key   = 'SOFTWARE\Policies\Microsoft\Windows\WindowsAI'
+            Value = if ($name -eq 'AllowRecallEnablement') { @('0', '1')[$revert] }else { @('1', '0')[$revert] } #value needs to be 0 for AllowRecallEnablement but 1 for the rest
+        }
+        $aiPolicies += $obj
+    }
+
+    $valueNamesHKCU = @(
+        'DisableAIDataAnalysis'
+        'DisableClickToDo'
+    )
+    foreach ($name in $valueNamesHKCU) {
+        $obj = [PSCustomObject]@{
+            Name  = $name
+            Hive  = 'HKCU'
+            Key   = 'SOFTWARE\Policies\Microsoft\Windows\WindowsAI'
+            Value = @('1', '0')[$revert]
+        }
+        $aiPolicies += $obj
+    }
+
+    $obj = [PSCustomObject]@{
+        Name  = 'TurnOffWindowsCopilot'
+        Hive  = 'HKCU'
+        Key   = 'SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot'
+        Value = @('1', '0')[$revert]
+    }
+    $aiPolicies += $obj
+  
+    foreach ($policy in $aiPolicies) {
+        #apply each policy to registry and pol file (reflects exact behavior when doing these manually through gpedit)
+        Reg.exe add "$($policy.Hive)\$($policy.Key)" /v "$($policy.Name)" /t REG_DWORD /d $policy.Value /f *>$null
+        Edit-PolFile -Hive $policy.Hive -Key $policy.Key -Action Add -ValueName $policy.Name -Type DWORD -Value $policy.Value
+    }
+
     #set for local machine and current user to be sure
     $hives = @('HKLM', 'HKCU')
     foreach ($hive in $hives) {
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" /v 'TurnOffWindowsCopilot' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableAIDataAnalysis' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'AllowRecallEnablement' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableClickToDo' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'TurnOffSavingSnapshots' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableSettingsAgent' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableAgentConnectors' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableAgentWorkspaces' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-        Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableRemoteAgentConnectors' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
         #only for insiders using enterprise or education as of right now (12/23/25)
         #Reg.exe add "$hive\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v 'DisableRecallDataProviders' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
         Reg.exe add "$hive\SOFTWARE\Microsoft\Windows\Shell\Copilot\BingChat" /v 'IsUserEligible' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
