@@ -1541,6 +1541,20 @@ Windows Registry Editor Version 5.00
      
     }
     
+    #disable ai features when npu is detected in snipping tool
+    $settingsDat = "$env:LOCALAPPDATA\Packages\Microsoft.ScreenSketch_8wekyb3d8bbwe\Settings\settings.dat"
+    if (Test-Path $settingsDat) {
+        Write-Status -msg "$(@('Disabling','Enabling')[$revert]) Click to Do in Snipping Tool..."
+        Stop-Process -Name SnippingTool -Force -ErrorAction SilentlyContinue
+        $setting = [PSCustomObject]@{
+            Name  = 'DeviceHasNpu'
+            Path  = 'LocalState'
+            Value = @('0', '1')[$revert] # 0 = disable    1 = enable
+            Type  = '5f5e104'
+        }
+            
+        $setting | Set-UwpAppRegistryEntry -FilePath $settingsDat
+    }
 
     #force policy changes
     Write-Status -msg 'Applying Registry Changes...'
