@@ -1045,8 +1045,32 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedGenerativeFillPageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedImageCreatorPageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'GettingStartedCocreatorPageViewed' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    
 
+    #disable ai context menu extensions
+    #these clsids are not always the same despite what most people seem to think when using this method so we need to get them for the user
+    if ($revert) {
+        $keys = Get-ItemProperty 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' -ErrorAction SilentlyContinue  | Get-Member -ErrorAction SilentlyContinue | Where-Object { $_.Definition -like '*copilot*' -or $_.Definition -like '*designer*' }
+        if ($keys) {
+            foreach ($key in $keys) {
+                Reg.exe delete 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v "$($key.Name)" /f *>$null
+            }
+        }
+    }
+    else {
+        $aiContextMenus = @(
+            'AskM365Copilot'
+            'AskCopilot'
+            'CreateWithDesigner'
+        )
+        $contextMenuExtensions = (Get-AppxPackage -AllUsers | Get-AppxPackageManifest) | ForEach-Object { $_.package.Applications.Application.Extensions.Extension.FileExplorerContextMenus.itemtype.verb } | Select-Object  Id, Clsid -unique
+        foreach ($ext in $contextMenuExtensions) {
+            if ($aiContextMenus -contains $ext.Id) {
+                Reg.exe add 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v "{$($ext.Clsid)}" /t REG_SZ /d "$($ext.Id)" /f *>$null
+            }
+        }
+    }
+    
+    
     #apply reg keys for default user to disable for any new users created
     #unload just incase
     [GC]::Collect()
@@ -1092,23 +1116,11 @@ function Disable-Registry-Keys {
         Reg.exe add 'HKU\DefaultUser\Software\Microsoft\InputPersonalization' /v 'RestrictImplicitTextCollection' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
         Reg.exe add 'HKU\DefaultUser\Software\Microsoft\InputPersonalization\TrainedDataStore' /v 'HarvestContacts' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
         Reg.exe add 'HKU\DefaultUser\Software\Microsoft\Windows\CurrentVersion\CPSS\Store\InkingAndTypingPersonalization' /v 'Value' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
-        if ($revert) {
-            Reg.exe delete 'HKU\DefaultUser\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}' /f *>$null
-        }
-        else {
-            Reg.exe add 'HKU\DefaultUser\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}' /t REG_SZ /d 'Ask Copilot' /f *>$null
-        }
-
+        
         reg.exe unload 'HKU\DefaultUser' *>$null
     }
 
-    #disable ask copilot in context menu
-    if ($revert) {
-        Reg.exe delete 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}' /f *>$null
-    }
-    else {
-        Reg.exe add 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}' /t REG_SZ /d 'Ask Copilot' /f *>$null
-    }
+
     #Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' /v 'Start' /t REG_DWORD /d @('4', '2')[$revert] /f *>$null
     try {
         Stop-Service -Name WSAIFabricSvc -Force -ErrorAction Stop
