@@ -613,7 +613,16 @@ function Set-UwpAppRegistryEntry {
             $RegKey = "$($AppSettingsRegPath)\$($InputObject.Path)"
         }
         else {
-            $RegKey = (Get-ChildItem "registry::$AppSettingsRegPath" -Recurse | Where-Object { $_.pschildname -like '*Evoke' }).Name
+            try {
+                $RegKey = (Get-ChildItem "registry::$AppSettingsRegPath" -Recurse -ErrorAction Stop | Where-Object { $_.pschildname -like '*Evoke' }).Name
+            }
+            catch {
+                #early return when user has older version of photos app that doesnt have ai features
+                [gc]::Collect()
+                reg.exe UNLOAD $AppSettingsRegPath | Out-Null
+                return 1
+            }
+            
         }
         $RegContent += "`n[$RegKey]
         ""$($InputObject.Name)""=hex($($InputObject.Type)):$Value,$Timestamp`n" -replace '(?m)^ *'
@@ -1516,7 +1525,11 @@ Windows Registry Editor Version 5.00
                 Value = @('0', '1')[$revert] # 0 = disable    1 = enable
                 Type  = '5f5e10b'
             }
-            $setting | Set-UwpAppRegistryEntry -FilePath $uwpPhotosSettings
+            $result = $setting | Set-UwpAppRegistryEntry -FilePath $uwpPhotosSettings
+            if ($result) {
+                Write-Status -msg 'No AI Features in this Version of Photos...' -errorOutput
+                break
+            }
         }
     }
 
