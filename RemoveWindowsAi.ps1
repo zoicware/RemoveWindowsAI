@@ -641,7 +641,7 @@ function Set-UwpAppRegistryEntry {
 }
 
 #function to edit group policies's pol file that contains all policies found in group policy editor 
-#this will update the ui to properly reflect what policies have been set to via reg
+#this will update the ui to properly reflect what policies have been set to via reg  
 function Edit-PolFile {
     param(
         [Parameter(Mandatory)]
@@ -1938,6 +1938,8 @@ function Download-AppxPackage {
 function Remove-AI-Appx-Packages {
 
     if ($revert) {
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.Copilot_8wekyb3d8bbwe' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe' /f *>$null
 
         #download appx packages from store
         $appxBackup = "$env:USERPROFILE\RemoveWindowsAI\Backup\AppxBackup"
