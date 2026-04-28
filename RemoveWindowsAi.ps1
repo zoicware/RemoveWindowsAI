@@ -1940,6 +1940,9 @@ function Remove-AI-Appx-Packages {
     if ($revert) {
         Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.Copilot_8wekyb3d8bbwe' /f *>$null
         Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Clipchamp.Clipchamp_yxz26nhyzhsrt' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages' /v 'DynamicRemovalList' /f *>$null
+         
 
         #download appx packages from store
         $appxBackup = "$env:USERPROFILE\RemoveWindowsAI\Backup\AppxBackup"
@@ -2243,13 +2246,12 @@ foreach ($choice in $aipackages) {
         Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages' /v 'Enabled' /t REG_DWORD /d '1' /f *>$null
         Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.Copilot_8wekyb3d8bbwe' /v 'RemovePackage' /t REG_DWORD /d '1' /f *>$null
         Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe' /v 'RemovePackage' /t REG_DWORD /d '1' /f *>$null
+        Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages\Clipchamp.Clipchamp_yxz26nhyzhsrt' /v 'RemovePackage' /t REG_DWORD /d '1' /f *>$null
+        Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Appx\RemoveDefaultMicrosoftStorePackages' -Name 'DynamicRemovalList' -Value @(
+            'aimgr_8wekyb3d8bbwe'
+            'Microsoft.Edge.GameAssist_8wekyb3d8bbwe'
+        ) -type 7 #multi-line string
 
-        ## undo eol unblock trick to prevent latest cumulative update (LCU) failing 
-        #  $eolPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\EndOfLife'
-        #  $eolKeys = (Get-ChildItem $eolPath).Name
-        #  foreach ($path in $eolKeys) {
-        #      Remove-Item "registry::$path" -Recurse -Force -ErrorAction SilentlyContinue
-        #  }
     }
 
 }
