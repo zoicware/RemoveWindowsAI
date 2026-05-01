@@ -2252,6 +2252,18 @@ foreach ($choice in $aipackages) {
             'Microsoft.Edge.GameAssist_8wekyb3d8bbwe'
         ) -type 7 #multi-line string
 
+        $uninstallRegPath = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft Copilot'
+        if (Test-Path $uninstallRegPath) {
+            Write-Status -msg 'Removing Copilot Edge Integration App...'
+            $uninstallString = Get-ItemPropertyValue $uninstallRegPath -Name 'UninstallString'
+            if ($uninstallString) {
+                Start-Process cmd.exe -args "/c $uninstallString" -WindowStyle Hidden -Wait
+            }
+            else {
+                Write-Status -msg 'Unable to Find Copilot Uninstall String!' -errorOutput
+            }
+        }
+        
     }
 
 }
