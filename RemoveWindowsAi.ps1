@@ -57,6 +57,35 @@ if ($psversion -ge 7) {
     exit 1
 }
 
+#check if powershell is being "locked down" aka in ConstrainedLangauge mode
+if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
+    Write-Host 'ERROR: PowerShell is running in ' -NoNewline -ForegroundColor Red
+    Write-Host "[$($ExecutionContext.SessionState.LanguageMode) Mode]!" -ForegroundColor Yellow
+    Write-Host 'In order for this script to run PowerShell needs to be in FullLanguage Mode!' -ForegroundColor Red
+    Write-Host "`nYou may be able to fix this by running the following command: reg delete `"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment`" /v `"__PSLockdownPolicy`" /f" -ForegroundColor Red
+    Write-Host "`nPress Any Key to Exit..."
+    [System.Console]::ReadKey() >$null
+    exit 1
+}
+
+#check if a third party av has replaced defender
+$productNames = (Get-WmiObject -Namespace root\SecurityCenter2 -Class AntiVirusProduct).displayName
+$thirdPartyAvName = $null
+if ($productNames.count -gt 1) {
+    $thirdPartyAvName = $productNames | Where-Object { $_ -ne 'Windows Defender' }
+}
+elseif ($productNames -ne 'Windows Defender') {
+    $thirdPartyAvName = $productNames
+}
+
+if ($thirdPartyAvName) {
+    Write-Host 'WARNING: A third-party anti-virus has been detected!' -ForegroundColor Yellow
+    Write-Host "The anti-virus: $thirdPartyAvName, may falsely block/break this script!" -ForegroundColor Yellow
+    Write-Host 'Please disable or uninstall this anti-virus temporarily or proceed with caution!' -ForegroundColor Yellow
+    Write-Host "`nPress Any Key to Continue..."
+    [System.Console]::ReadKey() >$null
+}
+
 If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
     #leave out the trailing " to add supplied params first 
     $arglist = "-NoProfile -ExecutionPolicy Bypass -C `"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1')))"
