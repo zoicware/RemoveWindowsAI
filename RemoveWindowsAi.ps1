@@ -68,24 +68,6 @@ if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
     exit 1
 }
 
-#check if a third party av has replaced defender
-$productNames = (Get-WmiObject -Namespace root\SecurityCenter2 -Class AntiVirusProduct).displayName
-$thirdPartyAvName = $null
-if ($productNames.count -gt 1) {
-    $thirdPartyAvName = $productNames | Where-Object { $_ -ne 'Windows Defender' }
-}
-elseif ($productNames -ne 'Windows Defender') {
-    $thirdPartyAvName = $productNames
-}
-
-if ($thirdPartyAvName) {
-    Write-Host 'WARNING: A third-party anti-virus has been detected!' -ForegroundColor Yellow
-    Write-Host "The anti-virus: $thirdPartyAvName, may falsely block/break this script!" -ForegroundColor Yellow
-    Write-Host 'Please disable or uninstall this anti-virus temporarily or proceed with caution!' -ForegroundColor Yellow
-    Write-Host "`nPress Any Key to Continue..."
-    [System.Console]::ReadKey() >$null
-}
-
 If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
     #leave out the trailing " to add supplied params first 
     $arglist = "-NoProfile -ExecutionPolicy Bypass -C `"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1')))"
@@ -136,6 +118,24 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.Windows.Forms
+
+#check if a third party av has replaced defender
+$productNames = (Get-WmiObject -Namespace root\SecurityCenter2 -Class AntiVirusProduct).displayName
+$thirdPartyAvName = $null
+if ($productNames.count -gt 1) {
+    $thirdPartyAvName = $productNames | Where-Object { $_ -ne 'Windows Defender' }
+}
+elseif ($productNames -ne 'Windows Defender') {
+    $thirdPartyAvName = $productNames
+}
+
+if ($thirdPartyAvName) {
+    Write-Host 'WARNING: A third-party anti-virus has been detected!' -ForegroundColor Yellow
+    Write-Host "The anti-virus: $thirdPartyAvName, may falsely block/break this script!" -ForegroundColor Yellow
+    Write-Host 'Please disable or uninstall this anti-virus temporarily or proceed with caution!' -ForegroundColor Yellow
+    Write-Host "`nPress Any Key to Continue..."
+    [System.Console]::ReadKey() >$null
+}
 
 function Run-Trusted([String]$command, $psversion) {
 
