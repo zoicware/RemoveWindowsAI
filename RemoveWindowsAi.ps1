@@ -562,6 +562,7 @@ function Set-UwpAppRegistryEntry {
     )
 
     begin {
+        $script:abort = $false
         $AppSettingsRegPath = 'HKEY_USERS\APP_SETTINGS'
         $RegContent = "Windows Registry Editor Version 5.00`n"
 
@@ -597,12 +598,16 @@ function Set-UwpAppRegistryEntry {
     
         if ($LASTEXITCODE -ne 0) {
             Write-Status -msg 'Unable to load settings.dat' -errorOutput
-            return
+            $script:abort = $true
+            return 2
         }
       
     }
 
     process {
+        if ($script:abort) {
+            return 2
+        }
         $Value = $InputObject.Value
         $Value = switch ($InputObject.Type) {
             '5f5e10b' { 
@@ -644,11 +649,16 @@ function Set-UwpAppRegistryEntry {
         else {
             try {
                 $RegKey = (Get-ChildItem "registry::$AppSettingsRegPath" -Recurse -ErrorAction Stop | Where-Object { $_.pschildname -like '*Evoke' }).Name
+                if (!$RegKey) {
+                    #go to catch when regkey is empty too
+                    throw
+                }
             }
             catch {
                 #early return when user has older version of photos app that doesnt have ai features
                 [gc]::Collect()
-                reg.exe UNLOAD $AppSettingsRegPath | Out-Null
+                reg.exe UNLOAD $AppSettingsRegPath *>$null
+                $script:abort = $true
                 return 1
             }
             
@@ -658,6 +668,9 @@ function Set-UwpAppRegistryEntry {
     }
 
     end {
+        if ($script:abort) {
+            return 1
+        }
         [gc]::Collect()
         $SettingRegFilePath = "$($tempDir)uwp_app_settings.reg"
         $RegContent | Out-File -FilePath $SettingRegFilePath
@@ -1421,46 +1434,7 @@ function Disable-Registry-Keys {
     $uwpPhotosSettings = "$env:LOCALAPPDATA\Packages\Microsoft.Windows.Photos_8wekyb3d8bbwe\Settings\settings.dat"
     if (Test-Path $uwpPhotosSettings) {
         Write-Status -msg "$(@('Disabling','Enabling')[$revert]) AI in Photos App..."
-        #need to open it once to make the settings.dat structure
-        Start-Process 'explorer.exe' 'shell:AppsFolder\Microsoft.Windows.Photos_8wekyb3d8bbwe!App' 
-        Start-Sleep 5
-        taskkill.exe /im Photos.exe /f *>$null
-        <#
-        [GC]::Collect()
-        reg.exe unload 'HKU\TEMP' *>$null
-        #taskkill /im photos.exe /f *>$null
-        reg.exe load HKU\TEMP $uwpPhotosSettings >$null
-        if (!$revert) {
-            $regContent = @'
-Windows Registry Editor Version 5.00
-
-[HKEY_USERS\TEMP\LocalState] 
-"ImageCategorizationConsentDismissed"=hex(5f5e10c):74,00,72,00,75,00,65,00,00,\
-  00,4c,a0,89,0c,f7,2e,dc,01
-"ImageCategorizationConsent"=hex(5f5e10c):66,00,61,00,6c,00,73,00,65,00,00,00,\
-  6c,c4,53,ae,c5,51,dc,01
-'@
-        }
-        else {
-            $regContent = @'
-Windows Registry Editor Version 5.00
-
-[HKEY_USERS\TEMP\LocalState]
-"ImageCategorizationConsentDismissed"=hex(5f5e10c):74,00,72,00,75,00,65,00,00,\
-  00,4c,a0,89,0c,f7,2e,dc,01
-"ImageCategorizationConsent"=hex(5f5e10c):74,00,72,00,75,00,65,00,00,00,79,e7,\
-  fe,c5,c4,51,dc,01
-'@
-        }
-       
         
-        New-Item "$($tempDir)DisableAIPhotos.reg" -Value $regContent -Force | Out-Null
-        regedit.exe /s "$($tempDir)DisableAIPhotos.reg"
-        Start-Sleep 1
-        reg unload HKU\TEMP >$null
-        Remove-Item "$($tempDir)DisableAIPhotos.reg" -Force -ErrorAction SilentlyContinue
-        #>
-
         $photosSettingsBooleans = @(
             'OneDriveOnlineSearchFallbackFilter-IsEnabled'
             'ClipChampPromo-TeachingMoment-AlternateButtonBackground-IsEnabled'
@@ -1558,10 +1532,36 @@ Windows Registry Editor Version 5.00
                 Type  = '5f5e10b'
             }
             $result = $setting | Set-UwpAppRegistryEntry -FilePath $uwpPhotosSettings
-            if ($result) {
-                Write-Status -msg 'No AI Features in this Version of Photos...' -errorOutput
-                break
+            if ($result -eq 1) {
+                #photos app may have never been opened before on this machine so open it once to create the settings.dat structure
+                Write-Status -msg 'Opening Photos App once to apply changes!' -warningOutput
+
+                #wait for photos app to fully open
+                try {
+                    $photos = Start-Process 'ms-photos:' -PassThru -ErrorAction Stop
+               
+                    while (!$photos.MainWindowHandle -or $photos.MainWindowHandle -eq 0) {
+                        Start-Sleep 1
+                        $photos.Refresh()
+                    }
+                }
+                catch {
+                    #this version of photos is a weird placeholder app that requires the user to install the latest version from the store
+                    Write-Status -msg 'This version of Photos App needs to be fully updated from the store to unlock AI features...' -errorOutput
+                    taskkill.exe /im Microsoft.Lightbox.exe /f *>$null
+                    break
+                }
+                
+                taskkill.exe /im Photos.exe /f *>$null
+                
+                #now retry and if it fails again then this version doesnt have ai features
+                $result = $setting | Set-UwpAppRegistryEntry -FilePath $uwpPhotosSettings
+                if ($result -eq 1) {
+                    Write-Status -msg 'No AI Features in this version of Photos...' -errorOutput
+                    break
+                }
             }
+             
         }
     }
 
