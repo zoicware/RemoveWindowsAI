@@ -2023,6 +2023,7 @@ function Remove-AI-Appx-Packages {
             'aimgr'
             'Microsoft.WritingAssistant'
             'Clipchamp.Clipchamp'
+            'Microsoft.AIFabric.CBS*'
             #ai component packages installed on copilot+ pcs
             'MicrosoftWindows.*.Voiess'
             'MicrosoftWindows.*.Speion'
@@ -2083,6 +2084,7 @@ $aipackages = @(
     'Microsoft.Office.ActionsServer'
     'aimgr'
     'Clipchamp.Clipchamp'
+    'Microsoft.AIFabric.CBS*'
     'Microsoft.WritingAssistant'
     'MicrosoftWindows.*.Voiess'
     'MicrosoftWindows.*.Speion'
@@ -2446,6 +2448,7 @@ function Remove-AI-Files {
             'Microsoft.Office.ActionsServer'
             'aimgr'
             'Microsoft.WritingAssistant'
+            'Microsoft.AIFabric.CBS'
             #ai component packages installed on copilot+ pcs
             'WindowsWorkload'
             'Voiess'
