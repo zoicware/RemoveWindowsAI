@@ -3122,17 +3122,18 @@ function Update-Cleanup-Check {
         Set-Content -Path $scriptPath -Value $scriptContent.Content -Force
 
         #create silent script so that there is no powershell window flash for the user
-        $vbsScriptContent = @"
-Dim shell,command
-command = "powershell.exe -ep bypass -c ""$env:ProgramData\RemoveAI-UpdateCleanup.ps1"""
-Set shell = CreateObject("WScript.Shell")
-shell.Run command,0
+
+        #need to escape the \ in the path for jscript so like C:\\
+        $cleanupPath = $scriptPath -replace '\\' , '\\\\'
+        $JScriptContent = @"
+var shell = new ActiveXObject("WScript.Shell");
+shell.Run('powershell.exe -ep bypass -f "$cleanupPath"', 0);
 "@
-        $vbsPath = "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.vbs"
-        Set-Content -Path $vbsPath -Value $vbsScriptContent -Force
+        $jsPath = "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.js"
+        Set-Content -Path $jsPath -Value $jScriptContent -Force
 
         Write-Status -msg 'Creating Update Cleanup Scheduled Task...'
-        $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.vbs"
+        $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.js"
         $trigger = New-ScheduledTaskTrigger -AtLogOn
         $principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18'
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries 
