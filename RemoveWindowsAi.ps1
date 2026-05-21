@@ -2136,58 +2136,28 @@ foreach ($choice in $aipackages) {
         }
         catch {
             #user has set powershell execution policy via group policy or via settings, to change it we need to update the registry 
-            try {
-                $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell' -Name 'ExecutionPolicy' -ErrorAction Stop
-                Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'EnableScripts' /t REG_DWORD /d '1' /f >$null
-                Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
-                $Global:executionPolicyUser = $false
-                $Global:executionPolicyMachine = $false
-                $Global:executionPolicyWow64 = $false
-                $Global:executionPolicyUserPol = $false
-            }
-            catch {
-                try {
-                    $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKCU:\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' -Name 'ExecutionPolicy' -ErrorAction Stop
-                    Reg.exe add 'HKCU\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
-                    $Global:executionPolicyUser = $true
-                    $Global:executionPolicyMachine = $false
-                    $Global:executionPolicyWow64 = $false
-                    $Global:executionPolicyUserPol = $false
-                }
-                catch {
-                    try {
-                        $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' -Name 'ExecutionPolicy' -ErrorAction Stop
-                        Reg.exe add 'HKLM\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
-                        $Global:executionPolicyUser = $false
-                        $Global:executionPolicyMachine = $true
-                        $Global:executionPolicyWow64 = $false
-                        $Global:executionPolicyUserPol = $false
-                    }
-                    catch {
-                        try {
-                            $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' -Name 'ExecutionPolicy' -ErrorAction Stop
-                            Reg.exe add 'HKLM\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
-                            $Global:executionPolicyUser = $false
-                            $Global:executionPolicyMachine = $false
-                            $Global:executionPolicyWow64 = $true
-                            $Global:executionPolicyUserPol = $false
+            $policyPaths = @(
+                'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell',
+                'HKCU:\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell',
+                'HKLM:\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell',
+                'HKLM:\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell',
+                'HKCU:\SOFTWARE\Policies\Microsoft\Windows\PowerShell'
+            )
+            
+            foreach ($path in $policyPaths) {
+                $val = try { Get-ItemPropertyValue $path -Name 'ExecutionPolicy' -ErrorAction SilentlyContinue }catch {}
 
-                        }
-                        catch {
-                            $Global:ogExecutionPolicy = Get-ItemPropertyValue -Path 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\PowerShell' -Name 'ExecutionPolicy' 
-                            Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'EnableScripts' /t REG_DWORD /d '1' /f >$null
-                            Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
-                            $Global:executionPolicyUser = $false
-                            $Global:executionPolicyMachine = $false
-                            $Global:executionPolicyWow64 = $false
-                            $Global:executionPolicyUserPol = $true
-                        }
-                        
-
+                if ($val) { 
+                    $Global:ogExecutionPolicyPath = $path
+                    $Global:ogExecutionPolicy = $val
+                    #need to apply enabledscripts 1 for policies
+                    if ($path -like '*Policies\Microsoft\Windows\PowerShell') {
+                        #change path for reg format
+                        Reg.exe add $($path -replace ':', '') /v 'EnableScripts' /t REG_DWORD /d '1' /f >$null
                     }
-                    
+                    Reg.exe add $($path -replace ':', '') /v 'ExecutionPolicy' /t REG_SZ /d 'Unrestricted' /f >$null
+                    break
                 }
-               
             }
             
            
@@ -4601,22 +4571,8 @@ else {
                     catch {}
 
                     #set executionpolicy back to what it was
-                    if ($ogExecutionPolicy) {
-                        if ($Global:executionPolicyUser) {
-                            Reg.exe add 'HKCU\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-                        }
-                        elseif ($Global:executionPolicyMachine) {
-                            Reg.exe add 'HKLM\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-                        }
-                        elseif ($Global:executionPolicyWow64) {
-                            Reg.exe add 'HKLM\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-                        }
-                        elseif ($Global:executionPolicyUserPol) {
-                            Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-                        }
-                        else {
-                            Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-                        }
+                    if ($Global:ogExecutionPolicy) {
+                        Reg.exe add $($Global:ogExecutionPolicyPath -replace ':', '') /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
                     }
                     Restart-Computer -Force
                 }
@@ -4659,22 +4615,8 @@ try {
 catch {}
 
 #set executionpolicy back to what it was
-if ($ogExecutionPolicy) {
-    if ($Global:executionPolicyUser) {
-        Reg.exe add 'HKCU\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-    }
-    elseif ($Global:executionPolicyMachine) {
-        Reg.exe add 'HKLM\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-    }
-    elseif ($Global:executionPolicyWow64) {
-        Reg.exe add 'HKLM\SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-    }
-    elseif ($Global:executionPolicyUserPol) {
-        Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-    }
-    else {
-        Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell' /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
-    }
+if ($Global:ogExecutionPolicy) {
+    Reg.exe add $($Global:ogExecutionPolicyPath -replace ':', '') /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
 }
 
 if (!$nonInteractive) {
