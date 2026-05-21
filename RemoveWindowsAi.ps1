@@ -69,49 +69,19 @@ if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
 }
 
 If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
-    #leave out the trailing " to add supplied params first 
-    $arglist = "-NoProfile -ExecutionPolicy Bypass -C `"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1')))"
-    #pass the correct params if supplied
-    if ($nonInteractive) {
-        $arglist = $arglist + ' -nonInteractive'
-
-        if ($AllOptions) {
-            $arglist = $arglist + ' -AllOptions'
+    #rebuild params from $MyInvocation.BoundParameters
+    $paramStr = $MyInvocation.BoundParameters.GetEnumerator() | ForEach-Object {
+        $val = $_.Value
+        $key = $_.Key
+        switch ($val) {
+            { $val -is [switch] -or $val -is [bool] } { "-$Key"; break }
+            { $val -is [array] } { "-$key $($val -join ',')"; break }
+            default { "-$key $val" }
         }
-
-        if ($revertMode) {
-            $arglist = $arglist + ' -revertMode'
-        }
-
-        if ($backupMode) {
-            $arglist = $arglist + ' -backupMode'
-        }
-
-
-        if ($Options -and $Options.count -ne 0) {
-            #if options and alloptions is supplied just do all options
-            if ($AllOptions) {
-                #double check arglist has all options (should already have it)
-                if (!($arglist -like '*-AllOptions*')) {
-                    $arglist = $arglist + ' -AllOptions'
-                }
-            }
-            else {
-                $arglist = $arglist + " -Options $Options"
-            }
-        }
-
-        if ($InstallClassicApps -and $InstallClassicApps.Count -ne 0) {
-            $arglist = $arglist + " -InstallClassicApps $InstallClassicApps"
-        }
+        
     }
 
-    if ($EnableLogging) {
-        $arglist = $arglist + ' -EnableLogging'
-    }
-
-    #add the trailing quote 
-    $arglist = $arglist + '"'
+    $arglist = "-NoProfile -ExecutionPolicy Bypass -C `"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1'))) $($paramStr -join ' ')`""
     Start-Process PowerShell.exe -ArgumentList $arglist -Verb RunAs
     Exit	
 }
