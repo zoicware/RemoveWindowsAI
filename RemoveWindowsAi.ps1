@@ -1621,16 +1621,22 @@ function Disable-Registry-Keys {
     if (!$revert) {
         $spotlightConfigPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\DesktopSpotlight\Creatives'
         if (Test-Path $spotlightConfigPath) {
-            Write-Status -msg 'Removing Ask Copilot from Desktop Spotlight...'
-            $json = Get-ItemPropertyValue $spotlightConfigPath -Name 'Creatives' | ConvertFrom-Json
-            foreach ($item in $json.ad) {
-                if ($item.relatedContent) {
-                    $item.relatedContent = $item.relatedContent | Where-Object { $_.label -ne 'Ask Copilot' }
+            try {
+                $json = Get-ItemPropertyValue $spotlightConfigPath -Name 'Creatives' -ErrorAction Stop | ConvertFrom-Json
+                Write-Status -msg 'Removing Ask Copilot from Desktop Spotlight...'
+                foreach ($item in $json.ad) {
+                    if ($item.relatedContent) {
+                        $item.relatedContent = $item.relatedContent | Where-Object { $_.label -ne 'Ask Copilot' }
+                    }
                 }
-            }
 
-            $newjson = $json | ConvertTo-Json -Depth 20 -Compress
-            Set-ItemProperty $spotlightConfigPath -Name 'Creatives' -Value $newjson -Force
+                $newjson = $json | ConvertTo-Json -Depth 20 -Compress
+                Set-ItemProperty $spotlightConfigPath -Name 'Creatives' -Value $newjson -Force
+            }
+            catch {
+                #creatives does not exist
+            }
+            
         }
     }
     
