@@ -1256,6 +1256,40 @@ function Disable-Registry-Keys {
         }
     }
   
+    #remove copilot elevation service
+    try {
+        Stop-Service -Name MicrosoftCopilotElevationService -Force -ErrorAction Stop
+    }
+    catch {
+        #ignore error when svc is already removed
+    }
+    
+    $backupPath = "$env:USERPROFILE\RemoveWindowsAI\Backup"
+    $backupFileCopilotSvc = 'CopilotSvc.reg'
+    if ($revert) {
+        if (Test-Path "$backupPath\$backupFileCopilotSvc") {
+            Reg.exe import "$backupPath\$backupFileCopilotSvc" *>$null
+            #sc.exe create WSAIFabricSvc binPath= "$env:windir\System32\svchost.exe -k WSAIFabricSvcGroup -p" *>$null
+        }
+        else {
+            Write-Status -msg "Path Not Found: $backupPath\$backupFileCopilotSvc" -errorOutput 
+        }
+        
+    }
+    else {
+        if ($backup) {
+            Write-Status -msg 'Backing up MicrosoftCopilotElevationService...'
+            #export the service to a reg file before removing it 
+            if (!(Test-Path $backupPath)) {
+                New-Item $backupPath -Force -ItemType Directory | Out-Null
+            }
+            Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\MicrosoftCopilotElevationService' "$backupPath\$backupFileCopilotSvc" /y | Out-Null #add overwrite file /y switch
+            
+        }
+        Write-Status -msg 'Removing MicrosoftCopilotElevationService...'
+        #delete the service
+        sc.exe delete MicrosoftCopilotElevationService *>$null
+    }
 
 
     #block copilot from communicating with server
