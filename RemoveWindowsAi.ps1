@@ -1581,6 +1581,25 @@ function Disable-Registry-Keys {
         $setting | Set-UwpAppRegistryEntry -FilePath $settingsDat
     }
 
+    #remove the ask copilot button from desktop spotlight
+    #NOTE: theres also a defaultcreatives key that doesnt seem to have ask copilot in it but will also reset the spotlight images
+    #so instead of just using the default one we can remove ask copilot from the json for each image
+    if (!$revert) {
+        $spotlightConfigPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\DesktopSpotlight\Creatives'
+        if (Test-Path $spotlightConfigPath) {
+            Write-Status -msg 'Removing Ask Copilot from Desktop Spotlight...'
+            $json = Get-ItemPropertyValue $spotlightConfigPath -Name 'Creatives' | ConvertFrom-Json
+            foreach ($item in $json.ad) {
+                if ($item.relatedContent) {
+                    $item.relatedContent = $item.relatedContent | Where-Object { $_.label -ne 'Ask Copilot' }
+                }
+            }
+
+            $newjson = $json | ConvertTo-Json -Depth 20 -Compress
+            Set-ItemProperty $spotlightConfigPath -Name 'Creatives' -Value $newjson -Force
+        }
+    }
+    
     #force policy changes
     Write-Status -msg 'Applying Registry Changes...'
     gpupdate /force /wait:0 >$null
