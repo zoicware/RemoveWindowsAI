@@ -3035,10 +3035,10 @@ Windows Registry Editor Version 5.00
 
 
 
-function Remove-Recall-Tasks {
+function Remove-WindowsAI-Tasks {
     if (!$revert) {
         #remove recall tasks
-        Write-Status -msg 'Removing Recall Scheduled Tasks...'
+        Write-Status -msg 'Removing Windows AI Scheduled Tasks...'
         #believe it or not to disable and remove these you need system priv
         #create another sub script for removal
         $code = @"
@@ -3707,7 +3707,7 @@ if ($nonInteractive) {
         Remove-AI-Files 
         Hide-AI-Components 
         Disable-Notepad-Rewrite 
-        Remove-Recall-Tasks 
+        Remove-WindowsAI-Tasks 
         Update-Cleanup-Check
     }
     else {
@@ -3722,7 +3722,7 @@ if ($nonInteractive) {
             'RemoveAIFiles' { Remove-AI-Files }
             'HideAIComponents' { Hide-AI-Components }
             'DisableRewrite' { Disable-Notepad-Rewrite }
-            'RemoveRecallTasks' { Remove-Recall-Tasks }
+            'RemoveWindowsAITasks' { Remove-WindowsAI-Tasks }
             'UpdateCleanupCheck' { Update-Cleanup-Check }
         }
     }
@@ -3749,7 +3749,7 @@ else {
         'Remove-AI-Files'                = 'Removes AI-related files from SystemApps, WindowsApps, and other system directories. Also removes machine learning DLLs and Copilot installers.'
         'Hide-AI-Components'             = 'Hides AI components in Windows Settings by modifying the SettingsPageVisibility policy to prevent user access to AI settings.'
         'Disable-Notepad-Rewrite'        = 'Disables the AI Rewrite feature in Windows Notepad through registry modifications and group policy settings.'
-        'Remove-Recall-Tasks'            = 'Removes Recall-related scheduled tasks from the Windows Task Scheduler to prevent AI data collection processes from running.'
+        'Remove-WindowsAI-Tasks'         = 'Removes Windows AI scheduled tasks from Task Scheduler to prevent AI data collection processes from running.'
         'Update-Cleanup-Check'           = 'Creates a silent scheduled task to run at log-on to check if Windows has been updated... if it has then the script will cleanup newly installed AI features'
     }
 
@@ -3887,7 +3887,7 @@ else {
         'Remove-AI-Files'               
         'Hide-AI-Components'            
         'Disable-Notepad-Rewrite'       
-        'Remove-Recall-Tasks'
+        'Remove-WindowsAI-Tasks'
         'Update-Cleanup-Check'          
     )
 
@@ -4592,7 +4592,7 @@ else {
                         'Remove-AI-Files' { Remove-AI-Files }
                         'Hide-AI-Components' { Hide-AI-Components }
                         'Disable-Notepad-Rewrite' { Disable-Notepad-Rewrite }
-                        'Remove-Recall-Tasks' { Remove-Recall-Tasks }
+                        'Remove-WindowsAI-Tasks' { Remove-WindowsAI-Tasks }
                         'Update-Cleanup-Check' { Update-Cleanup-Check }
                         'Install-Classic-Photoviewer' { install-classicapps -app 'photoviewer' }
                         'Install-Classic-Mspaint' { install-classicapps -app 'mspaint' }
