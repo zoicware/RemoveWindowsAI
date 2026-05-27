@@ -839,6 +839,12 @@ function Disable-Registry-Keys {
         Reg.exe delete 'HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData\Microsoft.Copilot_8wekyb3d8bbwe\Copilot.StartupTaskId' /f *>$null
         Reg.exe delete 'HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData\Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe\WebViewHostStartupId' /f *>$null
         Reg.exe delete 'HKCU\Software\Microsoft\Copilot' /v 'WakeApp' /f *>$null
+
+        #remove copilot run auto launch
+        $runNotiKey = (Get-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunNotification').property | Where-Object { $_ -like '*MicrosoftCopilotAutoLaunch*' }
+        if ($runNotiKey) {
+            Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunNotification' -Name $runNotiKey -Force
+        }
     }
 
     $aiPolicies = @()
