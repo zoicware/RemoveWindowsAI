@@ -39,8 +39,8 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  - **Hide AI Components**
    - This will hide the settings page `AI Components` 
  - **Disable Rewrite AI Feature in Notepad**
- - **Remove Recall Tasks**
-   - Forcibly removes all instances of Recall's scheduled tasks
+ - **Remove Windows AI Tasks**
+   - Forcibly removes all instances of Windows AI scheduled tasks
   - **Update Cleanup Check**
      - Creates scheduled task to check if Windows has been updated and if it has, newly installed AI features will be removed
 
@@ -117,7 +117,7 @@ RemoveCBSPackages
 RemoveAIFiles               
 HideAIComponents            
 DisableRewrite      
-RemoveRecallTasks
+RemoveWindowsAITasks
 UpdateCleanupCheck
 ```
 

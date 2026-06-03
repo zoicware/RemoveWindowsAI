@@ -10,7 +10,7 @@ param(
         'RemoveAIFiles',               
         'HideAIComponents',            
         'DisableRewrite',       
-        'RemoveRecallTasks',
+        'RemoveWindowsAITasks',
         'UpdateCleanupCheck')]
     [array]$Options,
     [switch]$AllOptions,
