@@ -1563,6 +1563,11 @@ function Disable-Registry-Keys {
                     break
                 }
                 
+                #on slow machines this will kill photos app too soon not allowing it to write to settings.dat creating the structure 
+                #so wait here until settings.dat is larger than 8kb (default size for all settings.dat files)
+                while ((Get-Item $uwpPhotosSettings).Length -eq 8192) {
+                    Start-Sleep 1
+                }
                 taskkill.exe /im Photos.exe /f *>$null
                 
                 #now retry and if it fails again then this version doesnt have ai features
