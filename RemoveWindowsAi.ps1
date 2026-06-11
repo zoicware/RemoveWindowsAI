@@ -18,7 +18,8 @@ param(
     [switch]$backupMode,
     [ValidateSet('photoviewer', 'mspaint', 'snippingtool', 'notepad', 'photoslegacy')]
     [array]$InstallClassicApps,
-    [switch]$RunWinUpdateRepair
+    [switch]$RunWinUpdateRepair,
+    [switch]$ExcludeOptions
 )
 
 if ($nonInteractive) {
@@ -3725,6 +3726,24 @@ if ($nonInteractive) {
         Update-Cleanup-Check
     }
     else {
+        $allOptions = @(
+            'DisableRegKeys' 
+            'Prevent-AI-Package-Reinstall' 
+            'DisableCopilotPolicies' 
+            'RemoveAppxPackages' 
+            'RemoveRecallFeature' 
+            'RemoveCBSPackages' 
+            'RemoveAIFiles' 
+            'HideAIComponents'
+            'DisableRewrite'
+            'RemoveWindowsAITasks' 
+            'UpdateCleanupCheck' 
+        )
+        #remove excluded options from the array
+        if ($ExcludeOptions) {
+            $Options = $allOptions | Where-Object { $_ -notin $Options }
+        }
+
         #loop through options array and run desired tweaks
         switch ($Options) {
             'DisableRegKeys' { Disable-Registry-Keys }
