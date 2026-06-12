@@ -3728,7 +3728,7 @@ if ($nonInteractive) {
         Update-Cleanup-Check
     }
     else {
-        $allOptions = @(
+        $allFunctions = @(
             'DisableRegKeys' 
             'Prevent-AI-Package-Reinstall' 
             'DisableCopilotPolicies' 
@@ -3742,12 +3742,15 @@ if ($nonInteractive) {
             'UpdateCleanupCheck' 
         )
         #remove excluded options from the array
-        if ($ExcludeOptions) {
-            $Options = $allOptions | Where-Object { $_ -notin $Options }
+        $activeOptions = if ($ExcludeOptions) {
+            $allFunctions | Where-Object { $Options -notcontains $_ }
+        }
+        else {
+            $Options
         }
 
         #loop through options array and run desired tweaks
-        switch ($Options) {
+        switch ($activeOptions) {
             'DisableRegKeys' { Disable-Registry-Keys }
             'Prevent-AI-Package-Reinstall' { Install-NOAIPackage }
             'DisableCopilotPolicies' { Disable-Copilot-Policies }
