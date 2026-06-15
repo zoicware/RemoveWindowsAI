@@ -1036,21 +1036,6 @@ function Disable-Registry-Keys {
         Reg.exe add "$sid\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband\AuxilliaryPins" /v 'CopilotPWAPin' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
         Reg.exe add "$sid\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband\AuxilliaryPins" /v 'RecallPin' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     }
-    #disable ai actions
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\1853569164' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\4098520719' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\929719951' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    #enable new feature to hide ai actions in context menu when none are avaliable 
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\1646260367' /v 'EnabledState' /t REG_DWORD /d @('2', '0')[$revert] /f *>$null
-    #disable additional ai velocity ids found from: https://github.com/phantomofearth/windows-velocity-feature-lists
-    #keep in mind these may or may not do anything depending on the windows build 
-    #disable copilot in taskbar and systray
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\3389499533' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\4027803789' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\450471565' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    #disable core ai / click to do with feature management 
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\2283032206' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
-    Reg.exe add 'HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\502943886' /v 'EnabledState' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     #disable ask copilot (taskbar search)
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' /v 'TaskbarCompanion' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #this branded key is blocked by the user choice driver too bad ms was very lazy and hardcoded a list of exe's not allowed to edit this key
