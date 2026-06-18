@@ -55,6 +55,14 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 ### Read the Script Docs Here
   > **[Documentation](https://github.com/zoicware/RemoveWindowsAI/blob/main/Documentation.md)**
 
+---
+
+### Local fork: Audit-WindowsAI.ps1
+
+This repo also contains `Audit-WindowsAI.ps1`, a local layer built on top of this script. Instead of the all-or-nothing approach, it runs in a **"foundation" mode**: it removes Microsoft's *product* AI features (Copilot, Recall, Click to Do, Office/Paint/Photos AI, Voice Access, Gaming Copilot, AI Actions...) while **keeping the on-device AI runtime and local LLM** (ONNX/WinML, Phi Silica, OpenVINO) so your own third-party apps that call the local models keep working.
+
+It first **audits** the system (writing a timestamped report), then removes/disables on confirmation, and is designed to be **re-run after every Windows Update** — it pre-emptively sets disable keys even for features that aren't installed yet, so they stay blocked if an update brings them back. See **[README-Audit-WindowsAI.md](README-Audit-WindowsAI.md)** for full details.
+
   > [!WARNING]
   > Some third party anti-viruses will falsely detect the script as malicious, obviously this is a false positive and the anti-virus will need to be temporarily disabled or set the script as an exclusion.
   >
