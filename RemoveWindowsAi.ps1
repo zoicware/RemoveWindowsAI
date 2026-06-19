@@ -3077,7 +3077,11 @@ Get-ScheduledTask -TaskName "*Office Actions Server*" -ErrorAction SilentlyConti
         "
         
         Run-Trusted -command $command -psversion $psversion
-        
+        #disable windows ai event viewer logs
+        wevtutil sl Microsoft-Windows-AI-ModelContextProtocol/Admin /e:false *>$null
+        wevtutil sl Microsoft-Windows-AI-Platform/Admin /e:false *>$null
+        wevtutil sl Microsoft-Windows-AI-ModelContextProtocol/Operational /e:false *>$null
+        wevtutil sl Microsoft-Windows-AI-Platform/Operational /e:false *>$null
     }
     
 }
