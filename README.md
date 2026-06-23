@@ -87,7 +87,7 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  <details>  
   <summary>Click to View UI</summary>
   <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/a2a4f371-23fa-4549-9b4d-25e91a5aa71e" />
-  <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/8a446a23-7c47-468e-856b-1e783205c511" />
+  <img width="556" height="253" alt="Capture2" src="https://github.com/user-attachments/assets/8a446a23-7c47-468e-856b-1e783205c511" />
 </details>  
 
 
