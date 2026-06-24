@@ -195,48 +195,10 @@ if ($CurrentCachedBuild -ne $OSBuild) {
     #run through checks for reinstalled ai
     #===================================================================================================
     $code = @'
-$aipackages = @(
-    'MicrosoftWindows.Client.AIX'
-    'MicrosoftWindows.Client.CoPilot'
-    'Microsoft.Windows.Ai.Copilot.Provider'
-    'Microsoft.Copilot'
-    'Microsoft.MicrosoftOfficeHub'
-    'MicrosoftWindows.Client.CoreAI'
-    'Microsoft.Edge.GameAssist'
-    'Microsoft.Office.ActionsServer'
-    'aimgr'
-    'Microsoft.WritingAssistant'
-    'Clipchamp.Clipchamp'
-    'Microsoft.AIFabric.CBS*'
-    'MicrosoftWindows.*.Voiess'
-    'MicrosoftWindows.*.Speion'
-    'MicrosoftWindows.*.Livtop'
-    'MicrosoftWindows.*.InpApp'
-    'MicrosoftWindows.*.Filons'
-    'WindowsWorkload.Data.Analysis.Stx.*'
-    'WindowsWorkload.Manager.*'
-    'WindowsWorkload.PSOnnxRuntime.Stx.*'
-    'WindowsWorkload.PSTokenizer.Stx.*'
-    'WindowsWorkload.QueryBlockList.*'
-    'WindowsWorkload.QueryProcessor.Data.*'
-    'WindowsWorkload.QueryProcessor.Stx.*'
-    'WindowsWorkload.SemanticText.Data.*'
-    'WindowsWorkload.SemanticText.Stx.*'
-    'WindowsWorkload.Data.ContentExtraction.Stx.*'
-    'WindowsWorkload.ScrRegDetection.Data.*'
-    'WindowsWorkload.ScrRegDetection.Stx.*'
-    'WindowsWorkload.TextRecognition.Stx.*'
-    'WindowsWorkload.Data.ImageSearch.Stx.*'
-    'WindowsWorkload.ImageContentModeration.*'
-    'WindowsWorkload.ImageContentModeration.Data.*'
-    'WindowsWorkload.ImageSearch.Data.*'
-    'WindowsWorkload.ImageSearch.Stx.*'
-    'WindowsWorkload.ImageTextSearch.Data.*'
-    'WindowsWorkload.PSOnnxRuntime.Stx.*'
-    'WindowsWorkload.PSTokenizerShared.Data.*'
-    'WindowsWorkload.PSTokenizerShared.Stx.*'
-    'WindowsWorkload.ImageTextSearch.Stx.*'
-)
+        param(
+            [string]$aipackages
+        )
+$aipackagesarray = $aipackages -split ','
 
 $provisioned = get-appxprovisionedpackage -online 
 $appxpackage = get-appxpackage -allusers
@@ -244,7 +206,7 @@ $store = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore'
 $users = @('S-1-5-18'); if (test-path $store) { $users += $((Get-ChildItem $store -ea 0 | Where-Object { $_ -like '*S-1-5-21*' }).PSChildName) }
 
 #use eol trick to uninstall some locked packages
-foreach ($choice in $aipackages) {
+foreach ($choice in $aipackagesarray) {
     foreach ($appx in $($provisioned | Where-Object { $_.PackageName -like "*$choice*" })) {
 
         $PackageName = $appx.PackageName 
@@ -318,10 +280,6 @@ foreach ($choice in $aipackages) {
            
     }
 
-    $command = "&`"$($tempDir)aiPackageRemoval.ps1`""
-    Run-Trusted -command $command
-
-    #needed for separate powershell sessions
     $aipackages = @(
         # 'MicrosoftWindows.Client.Photon'
         'MicrosoftWindows.Client.AIX'
@@ -336,46 +294,55 @@ foreach ($choice in $aipackages) {
         'Microsoft.WritingAssistant'
         'Clipchamp.Clipchamp'
         'Microsoft.AIFabric.CBS*'
-        #ai component packages installed on copilot+ pcs
         'MicrosoftWindows.*.Voiess'
         'MicrosoftWindows.*.Speion'
         'MicrosoftWindows.*.Livtop'
         'MicrosoftWindows.*.InpApp'
         'MicrosoftWindows.*.Filons'
-        'WindowsWorkload.Data.Analysis.Stx.*'
+        #ai component packages installed on copilot+ pcs
+        'WindowsWorkload.Data.Analysis*'
         'WindowsWorkload.Manager.*'
-        'WindowsWorkload.PSOnnxRuntime.Stx.*'
-        'WindowsWorkload.PSTokenizer.Stx.*'
+        'WindowsWorkload.PSOnnxRuntime*'
+        'WindowsWorkload.PSTokenizer*'
         'WindowsWorkload.QueryBlockList.*'
-        'WindowsWorkload.QueryProcessor.Data.*'
-        'WindowsWorkload.QueryProcessor.Stx.*'
-        'WindowsWorkload.SemanticText.Data.*'
-        'WindowsWorkload.SemanticText.Stx.*'
-        'WindowsWorkload.Data.ContentExtraction.Stx.*'
-        'WindowsWorkload.ScrRegDetection.Data.*'
-        'WindowsWorkload.ScrRegDetection.Stx.*'
-        'WindowsWorkload.TextRecognition.Stx.*'
-        'WindowsWorkload.Data.ImageSearch.Stx.*'
-        'WindowsWorkload.ImageContentModeration.*'
-        'WindowsWorkload.ImageContentModeration.Data.*'
-        'WindowsWorkload.ImageSearch.Data.*'
-        'WindowsWorkload.ImageSearch.Stx.*'
-        'WindowsWorkload.ImageTextSearch.Data.*'
-        'WindowsWorkload.PSOnnxRuntime.Stx.*'
-        'WindowsWorkload.PSTokenizerShared.Data.*'
-        'WindowsWorkload.PSTokenizerShared.Stx.*'
-        'WindowsWorkload.ImageTextSearch.Stx.*'
+        'WindowsWorkload.QueryProcessor*'
+        'WindowsWorkload.SemanticText*'
+        'WindowsWorkload.Data.ContentExtraction*'
+        'WindowsWorkload.ScrRegDetection*'
+        'WindowsWorkload.TextRecognition*'
+        'WindowsWorkload.Data.ImageSearch*'
+        'WindowsWorkload.ImageContentModeration*'
+        'WindowsWorkload.ImageSearch*'
+        'WindowsWorkload.PSTokenizerShared*'
+        'WindowsWorkload.ImageTextSearch*'
+        'WindowsWorkload.SettingsModel*'
+        'WindowsWorkload.Data.PhiSilica*'
+        'WindowsWorkload.EP.Qualcomm*'
+        'WindowsWorkload.ImageDescription*'
+        'WindowsWorkload.ImageLLMAdapter*'
+        'WindowsWorkload.LanguageModel*'
+        'WindowsWorkload.SessionManager*'
+        'WindowsWorkload.TextContentModeration*'
+        'WindowsWorkload.WinMLShared*'
+        'WindowsWorkload.Data.SettingsModel*'
+        'MicrosoftCorporationII.WinML.Qualcomm*'
     )
+
+    #prevent packages array from getting expanded too early
+    #pass comma seperated string and then convert back to array in new session
+    $joined = $aipackages -join ','
+    $command = "&`"$($tempDir)aiPackageRemoval.ps1`" -aipackages '$joined'"
+    Run-Trusted -command $command -psversion $psversion
 
     #check packages removal
     #exit loop after 10 tries
     $attempts = 0
     do {
         Start-Sleep 1
-        $packages = get-appxpackage -AllUsers | Where-Object { $aipackages -contains $_.Name }
+        $packages = get-appxpackage -AllUsers | Where-Object { $packageName = $_.Name; $aipackages | Where-Object { $packageName -like $_ } }
         if ($packages) {
             $attempts++
-            $command = "&`"$($tempDir)aiPackageRemoval.ps1`""
+            #$command = "&`"$($tempDir)aiPackageRemoval.ps1`""
             Run-Trusted -command $command
         }
     
