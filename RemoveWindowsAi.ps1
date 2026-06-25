@@ -1112,6 +1112,100 @@ function Disable-Registry-Keys {
             }
         }
     }
+
+    #unpin copilot 365 based on similar method from here: https://github.com/Freenitial/Pin-Taskbar
+    #since this is 'SystemPinned' theres no actual lnk file associated with the pin so we can just remove the AUMID
+    $Aumid = 'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
+
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public class TaskbarUnpinByAumid {
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string c, string w);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr p, IntPtr a, string c, string w);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    public static int FindEntry(byte[] blob, string needleStr) {
+        byte[] needle = System.Text.Encoding.Unicode.GetBytes(needleStr);
+        int pos = 0; int idx = 0;
+        while (pos < blob.Length && blob[pos] != 0xFF) {
+            if (pos + 5 > blob.Length) break;
+            int pidlStart = pos + 5;
+            int pidlEnd = pidlStart + (int)BitConverter.ToUInt32(blob, pos + 1);
+            if (pidlEnd > blob.Length) break;
+            for (int b = pidlStart; b + needle.Length <= pidlEnd; b++) {
+                bool match = true;
+                for (int c = 0; c < needle.Length; c++) { if (blob[b + c] != needle[c]) { match = false; break; } }
+                if (match) return idx;
+            }
+            pos = pidlEnd; idx++;
+        }
+        return -1;
+    }
+
+    public static byte[] RemoveFavEntry(byte[] blob, int removeIdx) {
+        System.IO.MemoryStream ms = new System.IO.MemoryStream();
+        int pos = 0; int idx = 0;
+        while (pos < blob.Length && blob[pos] != 0xFF) {
+            if (pos + 5 > blob.Length) break;
+            int total = 5 + (int)BitConverter.ToUInt32(blob, pos + 1);
+            if (pos + total > blob.Length) break;
+            if (idx != removeIdx) ms.Write(blob, pos, total);
+            pos += total; idx++;
+        }
+        ms.WriteByte(0xFF);
+        return ms.ToArray();
+    }
+
+    public static byte[] RemoveResEntry(byte[] blob, int removeIdx) {
+        System.IO.MemoryStream ms = new System.IO.MemoryStream();
+        int pos = 0; int idx = 0;
+        while (pos + 4 <= blob.Length) {
+            uint linkSize = BitConverter.ToUInt32(blob, pos);
+            if (linkSize == 0 || pos + 4 + (int)linkSize > blob.Length) break;
+            if (idx != removeIdx) ms.Write(blob, pos, 4 + (int)linkSize);
+            pos += 4 + (int)linkSize; idx++;
+        }
+        return ms.ToArray();
+    }
+
+    public static void SendPinNotify() {
+        IntPtr reBar = FindWindowEx(FindWindow("Shell_TrayWnd", null), IntPtr.Zero, "ReBarWindow32", null);
+        IntPtr band  = FindWindowEx(reBar, IntPtr.Zero, "MSTaskSwWClass", null);
+        if (band != IntPtr.Zero) PostMessage(band, 0x446, IntPtr.Zero, IntPtr.Zero);
+    }
+}
+'@
+
+    Write-Status -msg 'Unpinning Copilot 365 from Taskbar...'
+    $TaskBand = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband', $true)
+    $Favorites = $TaskBand.GetValue('Favorites', $null, 'DoNotExpandEnvironmentNames')
+    $FavoritesResolve = $TaskBand.GetValue('FavoritesResolve', $null, 'DoNotExpandEnvironmentNames')
+
+    $Idx = [TaskbarUnpinByAumid]::FindEntry($Favorites, $Aumid)
+    if ($Idx -lt 0) {
+        Write-Status -msg 'Copilot 365 is already unpinned...'
+        $TaskBand.Close()
+    }
+    else {
+        $Favorites = [TaskbarUnpinByAumid]::RemoveFavEntry($Favorites, $Idx)
+        if ($FavoritesResolve) { 
+            $FavoritesResolve = [TaskbarUnpinByAumid]::RemoveResEntry($FavoritesResolve, $Idx) 
+        }
+
+        $Changes = [int]$TaskBand.GetValue('FavoritesChanges', 0, 'DoNotExpandEnvironmentNames')
+        $TaskBand.SetValue('Favorites', $Favorites, 'Binary')
+        if ($FavoritesResolve) { 
+            $TaskBand.SetValue('FavoritesResolve', $FavoritesResolve, 'Binary') 
+        }
+        $TaskBand.SetValue('FavoritesVersion', 3, 'DWord')
+        $TaskBand.SetValue('FavoritesChanges', $Changes + 1, 'DWord')
+        $TaskBand.Close()
+        #refresh taskbar
+        [TaskbarUnpinByAumid]::SendPinNotify()
+    }
+
     
     
     #apply reg keys for default user to disable for any new users created
