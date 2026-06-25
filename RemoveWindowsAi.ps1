@@ -1183,8 +1183,11 @@ public class TaskbarUnpinByAumid {
     $Favorites = $TaskBand.GetValue('Favorites', $null, 'DoNotExpandEnvironmentNames')
     $FavoritesResolve = $TaskBand.GetValue('FavoritesResolve', $null, 'DoNotExpandEnvironmentNames')
 
-    $Idx = [TaskbarUnpinByAumid]::FindEntry($Favorites, $Aumid)
-    if ($Idx -lt 0) {
+    try {
+        $Idx = [TaskbarUnpinByAumid]::FindEntry($Favorites, $Aumid)
+    }
+    catch {}
+    if ($Idx -lt 0 -or $Idx -eq $null) {
         Write-Status -msg 'Copilot 365 is already unpinned...'
         $TaskBand.Close()
     }
