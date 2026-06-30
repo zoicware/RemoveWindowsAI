@@ -1113,6 +1113,64 @@ function Disable-Registry-Keys {
         }
     }
 
+    #Albacore.ViVe.ObfuscationHelpers (ViveTool) in powershell
+    #only need feature id -> obfuscated id for registry 
+    function SwapBytes32 {
+        param([uint32]$x)
+        $x = (($x -shr 16) -band 0xFFFFFFFF) -bor (($x -shl 16) -band 0xFFFFFFFF)
+        return ((($x -band 0xFF00FF00) -shr 8) -bor (($x -band 0x00FF00FF) -shl 8)) -band 0xFFFFFFFF
+    }
+
+    function RotateRight32 {
+        param([uint32]$value, [int]$shift)
+        #masks the shift amount to 0-31 for uint operands (shift & 31)
+        $s = (($shift % 32) + 32) % 32
+        if ($s -eq 0) { return $value }
+        return ((($value -shr $s) -bor ($value -shl (32 - $s))) -band 0xFFFFFFFF)
+    }
+
+    function ObfuscateFeatureId {
+        param([uint32]$FeatureId)
+        $step1 = ($FeatureId -bxor 0x74161A4E) -band 0xFFFFFFFF
+        $step2 = SwapBytes32 $step1
+        $step3 = ($step2 -bxor 0x8FB23D4F) -band 0xFFFFFFFF
+        $step4 = RotateRight32 -value $step3 -shift -1   # -1 & 31 = 31 -> rotate right 31 == rotate left 1
+        $step5 = ($step4 -bxor 0x833EA8FF) -band 0xFFFFFFFF
+        return [uint32]$step5
+    }
+
+
+    $settingsJSON = (Get-ChildItem -Path "$env:windir\SystemApps" -Recurse).FullName | Where-Object { $_ -like '*wsxpacks\Account\SettingsExtensions.json' }
+
+    $jsonContent = Get-Content $settingsJSON | ConvertFrom-Json
+    $list = 'CopilotSubscriptionCard', 'CopilotSubscriptionCard_Enterprise'
+
+    if ($jsonContent.addedHomeCards) {
+        Write-Status -msg 'Removing Copilot Cards from Settings...'
+        #grab the velocity id and apply it to registry
+        #if this file gets repaired or replaced the feature management should prevent it from coming back
+        $veloIDs = $jsonContent.addedHomeCards | Where-Object { $list -contains $_.cardID } | ForEach-Object { $_.conditions.velocityKey } 
+        if ($veloIDs) {
+            foreach ($veloID in $veloIDs) {
+                #convert feature id to obfuscated reg id
+                $regID = ObfuscateFeatureId $veloID.id
+                #tested using vivetool /disable sets enabledstate to 1
+                Reg.exe add "HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\$regID" /v 'EnabledState' /t REG_DWORD /d '1' /f *>$null
+            }
+        }
+
+        #remove the cards from the json
+        $jsonContent.addedHomeCards = $jsonContent.addedHomeCards | Where-Object { $list -notcontains $_.cardId }
+
+        takeown /f $settingsJSON *>$null
+        icacls $settingsJSON /grant *S-1-5-32-544:F /t *>$null
+
+        $newContent = $jsonContent | ConvertTo-Json -Depth 100
+        Set-Content -Path $settingsJSON -Value $newContent -Force
+    }
+
+
+
     #unpin copilot 365 based on similar method from here: https://github.com/Freenitial/Pin-Taskbar
     #since this is 'SystemPinned' theres no actual lnk file associated with the pin so we can just remove the AUMID
     $Aumid = 'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
