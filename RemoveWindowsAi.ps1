@@ -116,7 +116,6 @@ function Run-Trusted([String]$command, $psversion) {
     #fixed some issues with reflection methods
     function Invoke-AsTrustedInstaller {
         param(
-            [Parameter(Mandatory)]
             [string]$Code
         )
 
@@ -365,13 +364,11 @@ public static bool SetQuickEdit(bool SetEnabled){
 Add-Type -TypeDefinition $QuickEditCodeSnippet -Language CSharp
 
 
-function Set-QuickEdit() {
+function Set-QuickEdit {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false, HelpMessage = 'This switch will disable Console QuickEdit option')]
         [switch]$DisableQuickEdit = $false
     )
-
 
     if ([DisableConsoleQuickEdit]::SetQuickEdit($DisableQuickEdit)) {
         Write-Output 'QuickEdit settings has been updated.'
@@ -525,10 +522,8 @@ function Set-UwpAppRegistryEntry {
     [CmdletBinding()]
     param
     (
-        [Parameter(Mandatory, ValueFromPipeline)]
+        [Parameter(ValueFromPipeline)]
         $InputObject,
-
-        [Parameter(Mandatory)]
         [string] $FilePath
     )
 
@@ -657,15 +652,11 @@ function Set-UwpAppRegistryEntry {
 #this will update the ui to properly reflect what policies have been set to via reg  
 function Edit-PolFile {
     param(
-        [Parameter(Mandatory)]
         [ValidateSet('HKLM', 'HKCU')]
         [string]$Hive,
-        [Parameter(Mandatory)]
         [ValidateSet('Add', 'Delete')]
         [string]$Action,
-        [Parameter(Mandatory)]
         [string]$Key,
-        [Parameter(Mandatory)]
         [string]$ValueName,
         [ValidateSet('DWORD', 'SZ')]
         [string]$Type,
@@ -804,33 +795,10 @@ public static class PolHandler {
 function Disable-Registry-Keys {
     #maybe add params for particular parts
 
-    #disable ai registry keys
     Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) Copilot and Recall..."
     <#
-    #new keys related to windows ai schedled task 
-    #npu check 
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'HardwareCompatibility' /t REG_DWORD /d '0' /f 
-    #dont know
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'ITManaged' /t REG_DWORD /d '0' /f
-    #enabled by windows ai schedled task 
-    #set to 1 in the us 
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'AllowedInRegion' /t REG_DWORD /d '0' /f
-    #enabled by windows ai schelded task 
-    # policy enabled = 1 when recall is enabled in group policy 
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'PolicyConfigured' /t REG_DWORD /d '0' /f
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'PolicyEnabled' /t REG_DWORD /d '0' /f
-    #dont know
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'FTDisabledState' /t REG_DWORD /d '0' /f
-    #prob the npu check failing
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'MeetsAdditionalDriverRequirements' /t REG_DWORD /d '0' /f
-    #sucess from last run 
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'LastOperationKind' /t REG_DWORD /d '2' /f
-    #doesnt install recall for me so 0
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'AttemptedInstallCount' /t REG_DWORD /d '0' /f
-    #windows build
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'LastBuild' /t REG_DWORD /d '7171' /f
-    #5 for no good reason
-    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration' /v 'MaxInstallAttemptsAllowed' /t REG_DWORD /d '5' /f
+    keys related to windows ai schedled task 
+'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsAI\LastConfiguration'  
     #>
     if (!$revert) {
         #removing it does not get remade on restart so we will just remove it for now 
@@ -1525,7 +1493,6 @@ public class TaskbarUnpinByAumid {
 
     #disable gaming copilot 
     #found from: https://github.com/meetrevision/playbook/issues/197
-    #not sure this really does anything in my testing gaming copilot still appears 
     <#
     if ($revert) {
         $command = "reg delete 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.Xbox.GamingAI.Companion.Host.GamingCompanionHostOptions' /f"
@@ -1540,7 +1507,7 @@ public class TaskbarUnpinByAumid {
     #>
     
     if (!$revert) {
-        #better method by setting the gaming copilot widget to false in the xbox overlay settings json file
+        #better method than above by setting the gaming copilot widget to false in the xbox overlay settings json file
         #to make this actually work gamebar service needs to be restarted 
         $overlaySettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.XboxGamingOverlay_8wekyb3d8bbwe\LocalState\profileDataSettings.txt"
         if (Test-Path $overlaySettingsPath) {
@@ -1575,7 +1542,7 @@ public class TaskbarUnpinByAumid {
                     Set-Content $overlaySettingsPath -Value $newContent -Force
                 }
                 else {
-                    Write-Status -msg 'GamingCompanionWidget NOT Found in profileDataSettings.txt! Skipping...' -errorOutput
+                    Write-Status -msg 'GamingCompanionWidget NOT Found in profileDataSettings.txt! Skipping...' -warningOutput
                 }
             }
             catch {
@@ -2547,13 +2514,6 @@ function Remove-AI-Files {
             Write-Status -msg 'Unable to Find Backup Files!' -errorOutput 
         }
        
-        <#
-        if (Test-Path "$env:USERPROFILE\RemoveWindowsAI\Backup\CompStorage"){
-            Get-ChildItem "$env:USERPROFILE\RemoveWindowsAI\Backup\CompStorage" -Filter "*.reg"
-        }else{
-            Write-Status -msg 'Unable to Find Component Storage Backup!' -errorOutput 
-        }
-        #>
     }
     else {
 
@@ -3045,47 +3005,6 @@ function Remove-AI-Files {
         Start-Sleep 1
     }
 
-    #TEST:
-    # remove ai components from component storage
-    # this will prevent sfc from trying to repair files removed 
-    # but seems to prevent windows update from working
-    <#
-    $compPath = "$env:systemroot\System32\config\COMPONENTS"
-
-    reg.exe query 'HKLM\COMPONENTS' /ve *>$null
-    if ($LASTEXITCODE -ne 0) {
-        reg.exe load 'HKLM\COMPONENTS' $compPath >$null
-    }
-
-    if ($LASTEXITCODE -ne 0) {
-        Write-Status -msg "Unable to Load $compPath" -errorOutput
-    }
-    else {
-        $paths = Get-ChildItem 'registry::HKLM\COMPONENTS\DerivedData\Components' | Where-Object { $_.PSChildName -like '*copilot*' -or
-            $_.PSChildName -like '*userexperience-aix*' -or
-            $_.PSChildName -like '*userexperience-recall*' -or
-            $_.PSChildName -like '*userexperience-coreai*' } 
-
-        if ($paths) {
-            Write-Status -msg 'Removing AI Components Found in Component Storage...'
-            #backup by default for now
-            $backupPath = "$env:USERPROFILE\RemoveWindowsAI\Backup\CompStorage"
-            if (!(Test-Path $backupPath)) {
-                New-Item $backupPath -ItemType Directory | Out-Null
-            }
-
-            foreach ($path in $paths) {
-                reg.exe export $path.Name "$backupPath\$($path.PSChildName).reg" /y >$null
-                reg.exe delete $path.Name /f
-            }
-            
-        }
-        else {
-            Write-Status -msg 'No Ai Components Found in Component Storage'
-        }
-
-    }
-    #>
 }
 
 
@@ -3135,21 +3054,8 @@ function Disable-Notepad-Rewrite {
     #disable rewrite for notepad
     Write-Status -msg "$(@('Disabling','Enabling')[$revert]) Rewrite Ai Feature for Notepad..."
     <#
-    taskkill /im notepad.exe /f *>$null
     #load notepad settings
     reg load HKU\TEMP "$env:LOCALAPPDATA\Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\Settings\settings.dat" >$null
-    #add disable rewrite
-    $regContent = @'
-Windows Registry Editor Version 5.00
-
-[HKEY_USERS\TEMP\LocalState]
-"RewriteEnabled"=hex(5f5e10b):00,e0,d1,c5,7f,ee,83,db,01
-'@
-    New-Item "$env:TEMP\DisableRewrite.reg" -Value $regContent -Force | Out-Null
-    regedit.exe /s "$env:TEMP\DisableRewrite.reg"
-    Start-Sleep 1
-    reg unload HKU\TEMP >$null
-    Remove-Item "$env:TEMP\DisableRewrite.reg" -Force -ErrorAction SilentlyContinue
     #>
     #above is old method before this policy to disable ai in notepad, [DEPRECIATED]
     Reg.exe add 'HKLM\SOFTWARE\Policies\WindowsNotepad' /v 'DisableAIFeatures' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
@@ -3246,19 +3152,7 @@ function Update-Cleanup-Check {
         $scriptPath = "$env:ProgramData\RemoveAI-UpdateCleanup.ps1"
         Set-Content -Path $scriptPath -Value $scriptContent.Content -Force
 
-        #create silent script so that there is no powershell window flash for the user
-
-        #need to escape the \ in the path for jscript so like C:\\
-        <#
-        $cleanupPath = $scriptPath -replace '\\' , '\\\\'
-        $JScriptContent = @"
-var shell = new ActiveXObject("WScript.Shell");
-shell.Run('powershell.exe -ep bypass -f "$cleanupPath"', 0);
-"@
-        $jsPath = "$env:ProgramData\RemoveAI-UpdateCleanup-Silent.js"
-        Set-Content -Path $jsPath -Value $jScriptContent -Force
-        #>
-
+        #use conhost --headless to prevent powershell window flash
         Write-Status -msg 'Creating Update Cleanup Scheduled Task...'
         $action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell.exe -ep bypass -f `"$scriptPath`""
         $trigger = New-ScheduledTaskTrigger -AtLogOn
@@ -4199,7 +4093,6 @@ else {
     #add switches for backup and revert modes
     function Add-iOSToggleToUI {
         param(
-            [Parameter(Mandatory = $true)]
             [System.Windows.Controls.Panel]$ParentControl,
             [bool]$IsChecked = $false,
             [string]$Name = 'iOSToggle'
