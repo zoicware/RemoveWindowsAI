@@ -38,4 +38,24 @@ Here is a good guide from elevenfourms: https://www.elevenforum.com/t/enable-or-
 
 
 
+### Ai in Office Apps
 
+>[!NOTE]
+> Some of these features are only for users that have an enterprise ms365 license 
+
+>[!TIP]
+> If you need to use the office apps for personal use I recommend using [massgrave](https://github.com/massgravel/Microsoft-Activation-Scripts) as using this will not enable Copilot in any office apps
+
+#### Teams
+
+`Settings -> Chats and Channels list -> Copilot`
+
+
+#### Outlook
+
+`New Outlook -> Settings -> Copilot`
+
+
+#### App Bar
+
+`Right click Copilot icon in app bar -> uninstall`
