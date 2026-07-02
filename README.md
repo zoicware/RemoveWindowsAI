@@ -107,6 +107,11 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -Options DisableRegKeys,RemoveAppxPackages,DisableCopilotPolicies 
  ```
 
+ **Run with Specific Options Excluded Example**
+ ```PowerShell
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -ExcludeOptions -Options DisableRegKeys,RemoveAppxPackages,DisableCopilotPolicies 
+ ```
+
 **All Possible Options:**
 ```
 DisableRegKeys          
@@ -142,6 +147,7 @@ photoslegacy
 > [!NOTE]
 > Backup Mode needs to be enabled to be able to fully revert
 > 
+> **This creates a restore point for you**
  ```PowerShell
  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -backupMode -AllOptions
  ```
