@@ -504,6 +504,26 @@ function Create-RestorePoint {
 
 }
 
+function Restart-Explorer {
+    try {
+        Stop-Process -name explorer -Force -ErrorAction Stop
+    }
+    catch {
+        #try taskkill instead if stop process doesnt work for some reason
+        taskkill.exe /F /IM 'explorer.exe' *>$null
+    }
+    #sleep for 10 seconds and start explorer if not auto starting
+    $time = 10
+    do {
+        $time--
+        Start-Sleep 1
+    }while (!(Get-Process explorer -ErrorAction SilentlyContinue) -and $time -ne 0)
+    if ($time -eq 0) {
+        Start-Process explorer
+    }
+  
+}
+
 function Set-UwpAppRegistryEntry {
     # modified to work in windows powershell from https://github.com/agadiffe/WindowsMize/blob/fe78912ccb1c83d440bd2123f5e43a6156fab31a/src/modules/applications/settings/public/Set-UwpAppSetting.ps1
     <# 
@@ -1235,6 +1255,64 @@ public class TaskbarUnpinByAumid {
         [TaskbarUnpinByAumid]::SendPinNotify()
     }
 
+
+    #unpin ai from startmenu
+    #only works 24h2+ since its using the configure start pins policy
+    #start only needs to read this policy's json file once to update the pinned app cache and then it can be removed
+    function Unpin-App {
+        param(
+            $json,
+            $pinnedApp,
+            $layoutPath
+        )
+        $unpinned = $false
+        foreach ($item in $json.pinnedList) {
+            if ($item.PSObject.Properties.Name -contains 'packagedAppId') {
+                if ($item.packagedAppId -eq $pinnedApp) {
+                    $item.PSObject.Properties.Remove('packagedAppId')
+                    $unpinned = $true
+                }
+            }
+        }
+        #remove empty properties.. not really needed for it to work but will cleanup the json
+        $json.pinnedList = @($json.pinnedList | Where-Object { @($_.PSObject.Properties).Count -gt 0 })
+
+        return $unpinned
+    }
+
+
+    $aiAppIds = @(
+        'MicrosoftWindows.Client.CoreAI_cw5n1h2txyewy!ClickToDoApp',
+        'Microsoft.Copilot_8wekyb3d8bbwe!App',
+        'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
+    )
+    #get the current pinned apps
+    $layoutPath = "$($tempDir)layouts.json"
+    Remove-Item $layoutPath -ErrorAction SilentlyContinue
+    Export-StartLayout -Path $layoutPath
+    $json = Get-Content $layoutPath -Raw | ConvertFrom-Json
+
+    foreach ($pinnedApp in $aiAppIds) {
+        $result = Unpin-App -json $json -pinnedApp $pinnedApp -layoutPath $layoutPath
+    }
+
+    if ($result) {
+        Write-Status -msg 'Unpinning AI Apps from Start...'
+        #update layout json
+        $newJson = ConvertTo-Json $json -Depth 10 -Compress
+        Set-Content $layoutPath $newJson -Force
+        #apply policy and force start to refresh pinned app cache
+        Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /t REG_DWORD /d '1' /f >$null
+        Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /t REG_SZ /d "$layoutPath" /f >$null
+        Restart-Explorer
+        Start-Sleep 1
+        $wshell = New-Object -ComObject wscript.shell
+        $wshell.SendKeys('^{ESC}')
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /f >$null
+        $wshell.SendKeys('^{ESC}')
+    }
+    Remove-Item $layoutPath -Force -ErrorAction SilentlyContinue
     
     
     #apply reg keys for default user to disable for any new users created
