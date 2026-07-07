@@ -493,7 +493,7 @@ function Create-RestorePoint {
             $proc = Start-Process 'SystemPropertiesProtection.exe' -ErrorAction Stop -PassThru
         }
         catch {
-            $proc = Start-Process 'C:\Windows\System32\control.exe' -ArgumentList 'sysdm.cpl ,4' -PassThru
+            $proc = Start-Process "$env:windir\System32\control.exe" -ArgumentList 'sysdm.cpl ,4' -PassThru
         }
         #click configure on the window
         Start-Sleep 1
@@ -2840,7 +2840,7 @@ function Remove-AI-Files {
         Reg.exe delete 'HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate' /v 'CopilotUpdatePath' /f *>$null
     
         #remove additional installers
-        $inboxapps = 'C:\Windows\InboxApps'
+        $inboxapps = "$env:windir\InboxApps"
         $installers = Get-ChildItem -Path $inboxapps -Filter '*Copilot*'
         foreach ($installer in $installers) {
             takeown /f $installer.FullName *>$null
@@ -3043,8 +3043,8 @@ function Remove-AI-Files {
             'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide\Winners'
         )
         $dirs = @(
-            'C:\Windows\WinSxS',
-            'C:\Windows\System32\CatRoot'
+            "$env:windir\WinSxS",
+            "$env:windir\System32\CatRoot"
         )
         
         New-Item "$($tempDir)PathsToDelete.txt" -ItemType File -Force | Out-Null
@@ -3416,8 +3416,8 @@ function install-paint {
     
     #create start shortcut
     $WshShell = New-Object -comObject WScript.Shell
-    $Shortcut = $WshShell.CreateShortcut('C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Paint.lnk')
-    $Shortcut.TargetPath = 'C:\Windows\System32\mspaint.exe'
+    $Shortcut = $WshShell.CreateShortcut("$env:programdata\Microsoft\Windows\Start Menu\Programs\Paint.lnk")
+    $Shortcut.TargetPath = "$env:windir\System32\mspaint.exe"
     $Shortcut.Save()
 
 }
@@ -3491,8 +3491,8 @@ function install-snipping {
    
 
     $WshShell = New-Object -comObject WScript.Shell
-    $Shortcut = $WshShell.CreateShortcut('C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Accessories\SnippingTool.lnk')
-    $Shortcut.TargetPath = ('C:\Windows\System32\SnippingTool.exe')
+    $Shortcut = $WshShell.CreateShortcut("$env:programdata\Microsoft\Windows\Start Menu\Programs\Accessories\SnippingTool.lnk")
+    $Shortcut.TargetPath = ("$env:windir\System32\SnippingTool.exe")
     $Shortcut.Save()
 
 }
@@ -3593,8 +3593,8 @@ function install-notepad {
 
     #create start shortcut
     $WshShell = New-Object -comObject WScript.Shell
-    $Shortcut = $WshShell.CreateShortcut('C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Notepad.lnk')
-    $Shortcut.TargetPath = 'C:\Windows\System32\Notepad.exe'
+    $Shortcut = $WshShell.CreateShortcut("$env:programdata\Microsoft\Windows\Start Menu\Programs\Notepad.lnk")
+    $Shortcut.TargetPath = "$env:windir\System32\Notepad.exe"
     $Shortcut.Save()
 
 }
