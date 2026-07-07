@@ -1100,70 +1100,73 @@ function Disable-Registry-Keys {
             }
         }
     }
-
-    #Albacore.ViVe.ObfuscationHelpers (ViveTool) in powershell
-    #only need feature id -> obfuscated id for registry 
-    function SwapBytes32 {
-        param([uint32]$x)
-        $x = (($x -shr 16) -band 0xFFFFFFFF) -bor (($x -shl 16) -band 0xFFFFFFFF)
-        return ((($x -band 0xFF00FF00) -shr 8) -bor (($x -band 0x00FF00FF) -shl 8)) -band 0xFFFFFFFF
-    }
-
-    function RotateRight32 {
-        param([uint32]$value, [int]$shift)
-        #masks the shift amount to 0-31 for uint operands (shift & 31)
-        $s = (($shift % 32) + 32) % 32
-        if ($s -eq 0) { return $value }
-        return ((($value -shr $s) -bor ($value -shl (32 - $s))) -band 0xFFFFFFFF)
-    }
-
-    function ObfuscateFeatureId {
-        param([uint32]$FeatureId)
-        $step1 = ($FeatureId -bxor 0x74161A4E) -band 0xFFFFFFFF
-        $step2 = SwapBytes32 $step1
-        $step3 = ($step2 -bxor 0x8FB23D4F) -band 0xFFFFFFFF
-        $step4 = RotateRight32 -value $step3 -shift -1   # -1 & 31 = 31 -> rotate right 31 == rotate left 1
-        $step5 = ($step4 -bxor 0x833EA8FF) -band 0xFFFFFFFF
-        return [uint32]$step5
-    }
-
-
-    $settingsJSON = (Get-ChildItem -Path "$env:windir\SystemApps" -Recurse).FullName | Where-Object { $_ -like '*wsxpacks\Account\SettingsExtensions.json' }
-
-    $jsonContent = Get-Content $settingsJSON | ConvertFrom-Json
-    $list = 'CopilotSubscriptionCard', 'CopilotSubscriptionCard_Enterprise'
-
-    if ($jsonContent.addedHomeCards) {
-        Write-Status -msg 'Removing Copilot Cards from Settings...'
-        #grab the velocity id and apply it to registry
-        #if this file gets repaired or replaced the feature management should prevent it from coming back
-        $veloIDs = $jsonContent.addedHomeCards | Where-Object { $list -contains $_.cardID } | ForEach-Object { $_.conditions.velocityKey } 
-        if ($veloIDs) {
-            foreach ($veloID in $veloIDs) {
-                #convert feature id to obfuscated reg id
-                $regID = ObfuscateFeatureId $veloID.id
-                #tested using vivetool /disable sets enabledstate to 1
-                Reg.exe add "HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\$regID" /v 'EnabledState' /t REG_DWORD /d '1' /f *>$null
-            }
+    #sfc should revert this and im not sure a clean way to get the velo ids back since they would be removed from the file
+    #also most likely this wont change anything for the user
+    if (!$revert) {
+        #Albacore.ViVe.ObfuscationHelpers (ViveTool) in powershell
+        #only need feature id -> obfuscated id for registry 
+        function SwapBytes32 {
+            param([uint32]$x)
+            $x = (($x -shr 16) -band 0xFFFFFFFF) -bor (($x -shl 16) -band 0xFFFFFFFF)
+            return ((($x -band 0xFF00FF00) -shr 8) -bor (($x -band 0x00FF00FF) -shl 8)) -band 0xFFFFFFFF
         }
 
-        #remove the cards from the json
-        $jsonContent.addedHomeCards = $jsonContent.addedHomeCards | Where-Object { $list -notcontains $_.cardId }
+        function RotateRight32 {
+            param([uint32]$value, [int]$shift)
+            #masks the shift amount to 0-31 for uint operands (shift & 31)
+            $s = (($shift % 32) + 32) % 32
+            if ($s -eq 0) { return $value }
+            return ((($value -shr $s) -bor ($value -shl (32 - $s))) -band 0xFFFFFFFF)
+        }
 
-        takeown /f $settingsJSON *>$null
-        icacls $settingsJSON /grant *S-1-5-32-544:F /t *>$null
+        function ObfuscateFeatureId {
+            param([uint32]$FeatureId)
+            $step1 = ($FeatureId -bxor 0x74161A4E) -band 0xFFFFFFFF
+            $step2 = SwapBytes32 $step1
+            $step3 = ($step2 -bxor 0x8FB23D4F) -band 0xFFFFFFFF
+            $step4 = RotateRight32 -value $step3 -shift -1   # -1 & 31 = 31 -> rotate right 31 == rotate left 1
+            $step5 = ($step4 -bxor 0x833EA8FF) -band 0xFFFFFFFF
+            return [uint32]$step5
+        }
 
-        $newContent = $jsonContent | ConvertTo-Json -Depth 100
-        Set-Content -Path $settingsJSON -Value $newContent -Force
+
+        $settingsJSON = (Get-ChildItem -Path "$env:windir\SystemApps" -Recurse).FullName | Where-Object { $_ -like '*wsxpacks\Account\SettingsExtensions.json' }
+
+        $jsonContent = Get-Content $settingsJSON | ConvertFrom-Json
+        $list = 'CopilotSubscriptionCard', 'CopilotSubscriptionCard_Enterprise'
+
+        if ($jsonContent.addedHomeCards) {
+            Write-Status -msg 'Removing Copilot Cards from Settings...'
+            #grab the velocity id and apply it to registry
+            #if this file gets repaired or replaced the feature management should prevent it from coming back
+            $veloIDs = $jsonContent.addedHomeCards | Where-Object { $list -contains $_.cardID } | ForEach-Object { $_.conditions.velocityKey } 
+            if ($veloIDs) {
+                foreach ($veloID in $veloIDs) {
+                    #convert feature id to obfuscated reg id
+                    $regID = ObfuscateFeatureId $veloID.id
+                    #tested using vivetool /disable sets enabledstate to 1
+                    Reg.exe add "HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\$regID" /v 'EnabledState' /t REG_DWORD /d '1' /f *>$null
+                }
+            }
+
+            #remove the cards from the json
+            $jsonContent.addedHomeCards = $jsonContent.addedHomeCards | Where-Object { $list -notcontains $_.cardId }
+
+            takeown /f $settingsJSON *>$null
+            icacls $settingsJSON /grant *S-1-5-32-544:F /t *>$null
+
+            $newContent = $jsonContent | ConvertTo-Json -Depth 100
+            Set-Content -Path $settingsJSON -Value $newContent -Force
+        }
     }
 
 
+    if (!$revert) {
+        #unpin copilot 365 based on similar method from here: https://github.com/Freenitial/Pin-Taskbar
+        #since this is 'SystemPinned' theres no actual lnk file associated with the pin so we can just remove the AUMID
+        $Aumid = 'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
 
-    #unpin copilot 365 based on similar method from here: https://github.com/Freenitial/Pin-Taskbar
-    #since this is 'SystemPinned' theres no actual lnk file associated with the pin so we can just remove the AUMID
-    $Aumid = 'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
-
-    Add-Type -TypeDefinition @'
+        Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 
@@ -1224,95 +1227,96 @@ public class TaskbarUnpinByAumid {
 }
 '@
 
-    Write-Status -msg 'Unpinning Copilot 365 from Taskbar...'
-    $TaskBand = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband', $true)
-    $Favorites = $TaskBand.GetValue('Favorites', $null, 'DoNotExpandEnvironmentNames')
-    $FavoritesResolve = $TaskBand.GetValue('FavoritesResolve', $null, 'DoNotExpandEnvironmentNames')
+        Write-Status -msg 'Unpinning Copilot 365 from Taskbar...'
+        $TaskBand = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband', $true)
+        $Favorites = $TaskBand.GetValue('Favorites', $null, 'DoNotExpandEnvironmentNames')
+        $FavoritesResolve = $TaskBand.GetValue('FavoritesResolve', $null, 'DoNotExpandEnvironmentNames')
 
-    try {
-        $Idx = [TaskbarUnpinByAumid]::FindEntry($Favorites, $Aumid)
-    }
-    catch {}
-    if ($Idx -lt 0 -or $Idx -eq $null) {
-        Write-Status -msg 'Copilot 365 is already unpinned...'
-        $TaskBand.Close()
-    }
-    else {
-        $Favorites = [TaskbarUnpinByAumid]::RemoveFavEntry($Favorites, $Idx)
-        if ($FavoritesResolve) { 
-            $FavoritesResolve = [TaskbarUnpinByAumid]::RemoveResEntry($FavoritesResolve, $Idx) 
+        try {
+            $Idx = [TaskbarUnpinByAumid]::FindEntry($Favorites, $Aumid)
+        }
+        catch {}
+        if ($Idx -lt 0 -or $Idx -eq $null) {
+            Write-Status -msg 'Copilot 365 is already unpinned...'
+            $TaskBand.Close()
+        }
+        else {
+            $Favorites = [TaskbarUnpinByAumid]::RemoveFavEntry($Favorites, $Idx)
+            if ($FavoritesResolve) { 
+                $FavoritesResolve = [TaskbarUnpinByAumid]::RemoveResEntry($FavoritesResolve, $Idx) 
+            }
+
+            $Changes = [int]$TaskBand.GetValue('FavoritesChanges', 0, 'DoNotExpandEnvironmentNames')
+            $TaskBand.SetValue('Favorites', $Favorites, 'Binary')
+            if ($FavoritesResolve) { 
+                $TaskBand.SetValue('FavoritesResolve', $FavoritesResolve, 'Binary') 
+            }
+            $TaskBand.SetValue('FavoritesVersion', 3, 'DWord')
+            $TaskBand.SetValue('FavoritesChanges', $Changes + 1, 'DWord')
+            $TaskBand.Close()
+            #refresh taskbar
+            [TaskbarUnpinByAumid]::SendPinNotify()
         }
 
-        $Changes = [int]$TaskBand.GetValue('FavoritesChanges', 0, 'DoNotExpandEnvironmentNames')
-        $TaskBand.SetValue('Favorites', $Favorites, 'Binary')
-        if ($FavoritesResolve) { 
-            $TaskBand.SetValue('FavoritesResolve', $FavoritesResolve, 'Binary') 
-        }
-        $TaskBand.SetValue('FavoritesVersion', 3, 'DWord')
-        $TaskBand.SetValue('FavoritesChanges', $Changes + 1, 'DWord')
-        $TaskBand.Close()
-        #refresh taskbar
-        [TaskbarUnpinByAumid]::SendPinNotify()
-    }
 
-
-    #unpin ai from startmenu
-    #only works 24h2+ since its using the configure start pins policy
-    #start only needs to read this policy's json file once to update the pinned app cache and then it can be removed
-    function Unpin-App {
-        param(
-            $json,
-            $pinnedApp,
-            $layoutPath
-        )
-        $unpinned = $false
-        foreach ($item in $json.pinnedList) {
-            if ($item.PSObject.Properties.Name -contains 'packagedAppId') {
-                if ($item.packagedAppId -eq $pinnedApp) {
-                    $item.PSObject.Properties.Remove('packagedAppId')
-                    $unpinned = $true
+        #unpin ai from startmenu
+        #only works 24h2+ since its using the configure start pins policy
+        #start only needs to read this policy's json file once to update the pinned app cache and then it can be removed
+        function Unpin-App {
+            param(
+                $json,
+                $pinnedApp,
+                $layoutPath
+            )
+            $unpinned = $false
+            foreach ($item in $json.pinnedList) {
+                if ($item.PSObject.Properties.Name -contains 'packagedAppId') {
+                    if ($item.packagedAppId -eq $pinnedApp) {
+                        $item.PSObject.Properties.Remove('packagedAppId')
+                        $unpinned = $true
+                    }
                 }
             }
+            #remove empty properties.. not really needed for it to work but will cleanup the json
+            $json.pinnedList = @($json.pinnedList | Where-Object { @($_.PSObject.Properties).Count -gt 0 })
+
+            return $unpinned
         }
-        #remove empty properties.. not really needed for it to work but will cleanup the json
-        $json.pinnedList = @($json.pinnedList | Where-Object { @($_.PSObject.Properties).Count -gt 0 })
 
-        return $unpinned
+
+        $aiAppIds = @(
+            'MicrosoftWindows.Client.CoreAI_cw5n1h2txyewy!ClickToDoApp',
+            'Microsoft.Copilot_8wekyb3d8bbwe!App',
+            'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
+        )
+        #get the current pinned apps
+        $layoutPath = "$($tempDir)layouts.json"
+        Remove-Item $layoutPath -ErrorAction SilentlyContinue
+        Export-StartLayout -Path $layoutPath
+        $json = Get-Content $layoutPath -Raw | ConvertFrom-Json
+
+        foreach ($pinnedApp in $aiAppIds) {
+            $result = Unpin-App -json $json -pinnedApp $pinnedApp -layoutPath $layoutPath
+        }
+
+        if ($result) {
+            Write-Status -msg 'Unpinning AI Apps from Start...'
+            #update layout json
+            $newJson = ConvertTo-Json $json -Depth 10 -Compress
+            Set-Content $layoutPath $newJson -Force
+            #apply policy and force start to refresh pinned app cache
+            Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /t REG_DWORD /d '1' /f >$null
+            Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /t REG_SZ /d "$layoutPath" /f >$null
+            Restart-Explorer
+            Start-Sleep 1
+            $wshell = New-Object -ComObject wscript.shell
+            $wshell.SendKeys('^{ESC}')
+            Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /f >$null
+            Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /f >$null
+            $wshell.SendKeys('^{ESC}')
+        }
+        Remove-Item $layoutPath -Force -ErrorAction SilentlyContinue
     }
-
-
-    $aiAppIds = @(
-        'MicrosoftWindows.Client.CoreAI_cw5n1h2txyewy!ClickToDoApp',
-        'Microsoft.Copilot_8wekyb3d8bbwe!App',
-        'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
-    )
-    #get the current pinned apps
-    $layoutPath = "$($tempDir)layouts.json"
-    Remove-Item $layoutPath -ErrorAction SilentlyContinue
-    Export-StartLayout -Path $layoutPath
-    $json = Get-Content $layoutPath -Raw | ConvertFrom-Json
-
-    foreach ($pinnedApp in $aiAppIds) {
-        $result = Unpin-App -json $json -pinnedApp $pinnedApp -layoutPath $layoutPath
-    }
-
-    if ($result) {
-        Write-Status -msg 'Unpinning AI Apps from Start...'
-        #update layout json
-        $newJson = ConvertTo-Json $json -Depth 10 -Compress
-        Set-Content $layoutPath $newJson -Force
-        #apply policy and force start to refresh pinned app cache
-        Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /t REG_DWORD /d '1' /f >$null
-        Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /t REG_SZ /d "$layoutPath" /f >$null
-        Restart-Explorer
-        Start-Sleep 1
-        $wshell = New-Object -ComObject wscript.shell
-        $wshell.SendKeys('^{ESC}')
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /f >$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /f >$null
-        $wshell.SendKeys('^{ESC}')
-    }
-    Remove-Item $layoutPath -Force -ErrorAction SilentlyContinue
     
     
     #apply reg keys for default user to disable for any new users created
@@ -1393,10 +1397,10 @@ public class TaskbarUnpinByAumid {
             if (!(Test-Path $backupPath)) {
                 New-Item $backupPath -Force -ItemType Directory | Out-Null
             }
-            #this will hang if the service has already been exported
-            # if (!(Test-Path "$backupPath\$backupFileWSAI")) {
-            Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFileWSAI" /y | Out-Null #add overwrite file /y switch
-            # }
+           
+            if (!(Test-Path "$backupPath\$backupFileWSAI")) {
+                Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc' "$backupPath\$backupFileWSAI" /y | Out-Null #add overwrite file /y switch
+            }
         }
         Write-Status -msg 'Removing WSAIFabricSvc...'
         #delete the service
@@ -1419,10 +1423,10 @@ public class TaskbarUnpinByAumid {
                 if (!(Test-Path $backupPath)) {
                     New-Item $backupPath -Force -ItemType Directory | Out-Null
                 }
-                #this will hang if the service has already been exported
-                # if (!(Test-Path "$backupPath\$backupFileAAR")) {
-                Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\AarSvc' "$backupPath\$backupFileAAR" /y | Out-Null
-                # }
+              
+                if (!(Test-Path "$backupPath\$backupFileAAR")) {
+                    Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\AarSvc' "$backupPath\$backupFileAAR" /y | Out-Null
+                }
             }
             Write-Status -msg 'Removing Agent Activation Runtime Service...'
             #delete the service
@@ -1481,7 +1485,9 @@ public class TaskbarUnpinByAumid {
             if (!(Test-Path $backupPath)) {
                 New-Item $backupPath -Force -ItemType Directory | Out-Null
             }
-            Reg.exe export 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\MicrosoftCopilotElevationService' "$backupPath\$backupFileCopilotSvc" /y | Out-Null #add overwrite file /y switch
+            if (!(Test-Path "$backupPath\$backupFileCopilotSvc")) {
+                Reg.exe export 'HKLM\SYSTEM\CurrentControlSet\Services\MicrosoftCopilotElevationService' "$backupPath\$backupFileCopilotSvc" /y | Out-Null #add overwrite file /y switch
+            }
             
         }
         Write-Status -msg 'Removing MicrosoftCopilotElevationService...'
@@ -1503,8 +1509,13 @@ public class TaskbarUnpinByAumid {
     else {
         if ($backup) {
             #backup .copilot file extension
-            Reg.exe export 'HKEY_CLASSES_ROOT\.copilot' "$backupPath\HKCR_Copilot.reg" /y *>$null
-            Reg.exe export 'HKEY_CURRENT_USER\Software\Classes\.copilot' "$backupPath\HKCU_Copilot.reg" /y *>$null
+            if (!(Test-Path "$backupPath\HKCR_Copilot.reg")) {
+                Reg.exe export 'HKEY_CLASSES_ROOT\.copilot' "$backupPath\HKCR_Copilot.reg" /y *>$null
+            }
+            if (!(Test-Path "$backupPath\HKCU_Copilot.reg")) {
+                Reg.exe export 'HKEY_CURRENT_USER\Software\Classes\.copilot' "$backupPath\HKCU_Copilot.reg" /y *>$null
+            }
+            
         }
         Write-Status -msg 'Removing .copilot File Extension...' 
         Reg.exe delete 'HKCU\Software\Classes\.copilot' /f *>$null
@@ -2289,7 +2300,6 @@ function Remove-AI-Appx-Packages {
         )
 
         if ($backup) {
-
             #create file with package family names for reverting
             $appxBackup = "$env:USERPROFILE\RemoveWindowsAI\Backup\AppxBackup"
             if (!(Test-Path $appxBackup)) {
