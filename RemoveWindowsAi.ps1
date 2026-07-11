@@ -2784,6 +2784,10 @@ function Remove-AI-Files {
             "$env:SystemRoot\SysWOW64\Windows.AI.MachineLearning.Preview.dll"
             "$env:SystemRoot\System32\SettingsHandlers_Copilot.dll"
             "$env:SystemRoot\System32\SettingsHandlers_A9.dll"
+            "$env:SystemRoot\System32\Windows.AI.Agents.dll"
+            "$env:SystemRoot\SysWOW64\Windows.AI.Agents.dll"
+            "$env:SystemRoot\System32\Windows.Internal.AI.PlatformCapability.dll"
+            "$env:SystemRoot\SysWOW64\Windows.Internal.AI.PlatformCapability.dll"
         )
         foreach ($path in $paths) {
             if (Test-Path $path) {
