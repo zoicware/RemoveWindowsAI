@@ -1292,30 +1292,37 @@ public class TaskbarUnpinByAumid {
         #get the current pinned apps
         $layoutPath = "$($tempDir)layouts.json"
         Remove-Item $layoutPath -ErrorAction SilentlyContinue
-        Export-StartLayout -Path $layoutPath
-        $json = Get-Content $layoutPath -Raw | ConvertFrom-Json
+        try {
+            Export-StartLayout -Path $layoutPath -ErrorAction Stop
 
-        foreach ($pinnedApp in $aiAppIds) {
-            $result = Unpin-App -json $json -pinnedApp $pinnedApp -layoutPath $layoutPath
-        }
+            $json = Get-Content $layoutPath -Raw | ConvertFrom-Json
 
-        if ($result) {
-            Write-Status -msg 'Unpinning AI Apps from Start...'
-            #update layout json
-            $newJson = ConvertTo-Json $json -Depth 10 -Compress
-            Set-Content $layoutPath $newJson -Force
-            #apply policy and force start to refresh pinned app cache
-            Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /t REG_DWORD /d '1' /f >$null
-            Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /t REG_SZ /d "$layoutPath" /f >$null
-            Restart-Explorer
-            Start-Sleep 1
-            $wshell = New-Object -ComObject wscript.shell
-            $wshell.SendKeys('^{ESC}')
-            Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /f >$null
-            Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /f >$null
-            $wshell.SendKeys('^{ESC}')
+            foreach ($pinnedApp in $aiAppIds) {
+                $result = Unpin-App -json $json -pinnedApp $pinnedApp -layoutPath $layoutPath
+            }
+
+            if ($result) {
+                Write-Status -msg 'Unpinning AI Apps from Start...'
+                #update layout json
+                $newJson = ConvertTo-Json $json -Depth 10 -Compress
+                Set-Content $layoutPath $newJson -Force
+                #apply policy and force start to refresh pinned app cache
+                Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /t REG_DWORD /d '1' /f >$null
+                Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /t REG_SZ /d "$layoutPath" /f >$null
+                Restart-Explorer
+                Start-Sleep 1
+                $wshell = New-Object -ComObject wscript.shell
+                $wshell.SendKeys('^{ESC}')
+                Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /f >$null
+                Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /f >$null
+                $wshell.SendKeys('^{ESC}')
+            }
+            Remove-Item $layoutPath -Force -ErrorAction SilentlyContinue
         }
-        Remove-Item $layoutPath -Force -ErrorAction SilentlyContinue
+        catch {
+            Write-Status -msg 'Unable to export start pins! Skipping unpinning copilot from startmenu.' -errorOutput
+        }
+        
     }
     
     
