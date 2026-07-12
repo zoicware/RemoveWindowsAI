@@ -1,6 +1,6 @@
 # Remove Windows Ai
 ## Why?
-The current 25H2 build of Windows 11 and future builds will include increasingly more AI features and components. This script aims to remove ALL of these features to improve user experience, privacy and security. 
+The current 25H2 build of Windows 11 and future builds will include increasingly more AI features and components. This script aims to remove ALL of these features to improve user experience, privacy and security.
 
 <img width="150" alt="AI-Explorer-icon" src="https://github.com/zoicware/RemoveWindowsAI/assets/118035521/33efb033-c935-416c-977d-777bb69a3737">
 
@@ -10,10 +10,10 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 
 
 ### Script Features
- - **Disable Registry Keys** 
+ - **Disable Registry Keys**
    - Disable Copilot
    - Disable Recall
-   - Disable Input Insights and typing data harvesting 
+   - Disable Input Insights and typing data harvesting
    - Copilot in Edge
    - Disable AI Experiments Program in Paint
    - Remove AI Fabric Service
@@ -26,18 +26,18 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
    - Disable AI Features in Photos App
    - Disable Click to Do in Snipping Tool
  - **Prevent Reinstall of AI Packages**
-   - Installs custom Windows Update package to prevent reinstall of AI packages in the CBS (Component-Based Servicing) store 
- - **Disable Copilot policies** 
+   - Installs custom Windows Update package to prevent reinstall of AI packages in the CBS (Component-Based Servicing) store
+ - **Disable Copilot policies**
    - Disables policies related to Copilot and Recall in IntegratedServicesRegionPolicySet.json
  - **Remove AI Appx Packages**
-   - Removes all AI appx packages including `Nonremovable` packages and WindowsWorkload 
+   - Removes all AI appx packages including `Nonremovable` packages and WindowsWorkload
  - **Remove Recall Optional Feature**
  - **Remove AI Packages in CBS**
-   - This will remove hidden and locked AI packages in the CBS (Component-Based Servicing) store 
+   - This will remove hidden and locked AI packages in the CBS (Component-Based Servicing) store
  - **Remove AI Files**
-   - This will do a full system cleanup removing all remaining AI installers, registry keys, and package files 
+   - This will do a full system cleanup removing all remaining AI installers, registry keys, and package files
  - **Hide AI Components**
-   - This will hide the settings page `AI Components` 
+   - This will hide the settings page `AI Components`
  - **Disable Rewrite AI Feature in Notepad**
  - **Remove Windows AI Tasks**
    - Forcibly removes all instances of Windows AI scheduled tasks
@@ -46,12 +46,12 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 
  - #### Install Classic Apps
    - These options will allow you to replace the modern AI infested apps with their classic version
-   - **Options:** Replace Notepad, Paint, Snipping Tool, Photo Viewer, and Install Photos Legacy 
- 
+   - **Options:** Replace Notepad, Paint, Snipping Tool, Photo Viewer, and Install Photos Legacy
+
 #### Manual AI Disabling
 - Unfortunately, not all features and settings can be disabled via a script. This guide will show additional AI features to disable.
 > **[Disable Other AI Features](https://github.com/zoicware/RemoveWindowsAI/blob/main/OtherAIFeatures.md)**
-  
+
 ### Read the Script Docs Here
   > **[Documentation](https://github.com/zoicware/RemoveWindowsAI/blob/main/Documentation.md)**
 
@@ -64,7 +64,7 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 
 
  ### How to Use
- 
+
  #### Run From Powershell Console as Administrator
  ---
 
@@ -84,11 +84,11 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
 
 
 
- <details>  
+ <details>
   <summary>Click to View UI</summary>
   <img width="586" height="693" alt="Capture2" src="https://github.com/user-attachments/assets/a2a4f371-23fa-4549-9b4d-25e91a5aa71e" />
   <img width="556" height="253" alt="Capture2" src="https://github.com/user-attachments/assets/8a446a23-7c47-468e-856b-1e783205c511" />
-</details>  
+</details>
 
 
 &nbsp;
@@ -100,45 +100,45 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -AllOptions
  ```
 
---- 
+---
 
 **Run with Specific Options Example**
  ```PowerShell
- & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -Options DisableRegKeys,RemoveAppxPackages,DisableCopilotPolicies 
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -Options DisableRegKeys,RemoveAppxPackages,DisableCopilotPolicies
  ```
 
  **Run with Specific Options Excluded Example**
  ```PowerShell
- & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -ExcludeOptions -Options DisableRegKeys,RemoveAppxPackages,DisableCopilotPolicies 
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -ExcludeOptions -Options DisableRegKeys,RemoveAppxPackages,DisableCopilotPolicies
  ```
 
 **All Possible Options:**
 ```
-DisableRegKeys          
-PreventAIPackageReinstall     
-DisableCopilotPolicies       
-RemoveAppxPackages        
-RemoveRecallFeature 
-RemoveCBSPackages         
-RemoveAIFiles               
-HideAIComponents            
-DisableRewrite      
+DisableRegKeys
+PreventAIPackageReinstall
+DisableCopilotPolicies
+RemoveAppxPackages
+RemoveRecallFeature
+RemoveCBSPackages
+RemoveAIFiles
+HideAIComponents
+DisableRewrite
 RemoveWindowsAITasks
 UpdateCleanupCheck
 ```
 
 **Run Install Classic Apps**
  ```PowerShell
- & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -InstallClassicApps photoviewer,mspaint,snippingtool,notepad  
+ & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -InstallClassicApps photoviewer,mspaint,snippingtool,notepad
  ```
 
 **All Possible Options:**
 ```
-photoviewer          
-mspaint     
-snippingtool       
-notepad        
-photoslegacy 
+photoviewer
+mspaint
+snippingtool
+notepad
+photoslegacy
 ```
 
 
@@ -146,7 +146,7 @@ photoslegacy
 
 > [!NOTE]
 > Backup Mode needs to be enabled to be able to fully revert
-> 
+>
 > **This creates a restore point for you**
  ```PowerShell
  & ([scriptblock]::Create((irm "https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1"))) -nonInteractive -backupMode -AllOptions
@@ -169,17 +169,17 @@ Given that Microsoft are continually updating and adding new AI features this sc
 You can view the newest updates to the script here:
 https://github.com/zoicware/RemoveWindowsAI/commits/main/
 
- > [!NOTE]  
+ > [!NOTE]
 > Any feature added to an Insider build will not be added to this script till it's added to the latest stable release
 
- 
+
 > [!TIP]
 > **Submitting an AI Feature**
 >
 > If you find an AI feature or registry key that is not currently removed or disabled by the script submit an issue with as much information as possible and I will add it to the script.
 
 
-### Donation 
+### Donation
 
 If you would like to support my work consider donating :)
 

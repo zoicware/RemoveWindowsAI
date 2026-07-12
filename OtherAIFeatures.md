@@ -4,9 +4,9 @@
 
 > [!NOTE]
 > Some of these are Copilot+ PC features and can possibly be disabled via the script however, I do not have one of these systems to test with
-> 
+>
 
-### OneDrive AI 
+### OneDrive AI
 
 If you use OneDrive (not recommended) there is an AI feature to scan images for facial recognition, you can find this setting by going to `Settings > Privacy and permissions > Features > People Section`
 
@@ -41,7 +41,7 @@ Here is a good guide from elevenfourms: https://www.elevenforum.com/t/enable-or-
 ### Ai in Office Apps
 
 >[!NOTE]
-> Some of these features are only for users that have an enterprise ms365 license 
+> Some of these features are only for users that have an enterprise ms365 license
 
 >[!TIP]
 > If you need to use the office apps for personal use I recommend using [massgrave](https://github.com/massgravel/Microsoft-Activation-Scripts) as using this will not enable Copilot in any office apps
