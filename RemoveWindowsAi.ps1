@@ -1131,35 +1131,35 @@ function Disable-Registry-Keys {
 
 
         $settingsJSON = (Get-ChildItem -Path "$env:windir\SystemApps" -Recurse).FullName | Where-Object { $_ -like '*wsxpacks\Account\SettingsExtensions.json' }
+        if ($settingsJSON) {
+            $jsonContent = Get-Content $settingsJSON | ConvertFrom-Json
+            $list = 'CopilotSubscriptionCard', 'CopilotSubscriptionCard_Enterprise'
 
-        $jsonContent = Get-Content $settingsJSON | ConvertFrom-Json
-        $list = 'CopilotSubscriptionCard', 'CopilotSubscriptionCard_Enterprise'
-
-        if ($jsonContent.addedHomeCards) {
-            Write-Status -msg 'Removing Copilot Cards from Settings...'
-            #grab the velocity id and apply it to registry
-            #if this file gets repaired or replaced the feature management should prevent it from coming back
-            $veloIDs = $jsonContent.addedHomeCards | Where-Object { $list -contains $_.cardID } | ForEach-Object { $_.conditions.velocityKey } 
-            if ($veloIDs) {
-                foreach ($veloID in $veloIDs) {
-                    #convert feature id to obfuscated reg id
-                    $regID = ObfuscateFeatureId $veloID.id
-                    #tested using vivetool /disable sets enabledstate to 1
-                    Reg.exe add "HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\$regID" /v 'EnabledState' /t REG_DWORD /d '1' /f *>$null
+            if ($jsonContent.addedHomeCards) {
+                Write-Status -msg 'Removing Copilot Cards from Settings...'
+                #grab the velocity id and apply it to registry
+                #if this file gets repaired or replaced the feature management should prevent it from coming back
+                $veloIDs = $jsonContent.addedHomeCards | Where-Object { $list -contains $_.cardID } | ForEach-Object { $_.conditions.velocityKey } 
+                if ($veloIDs) {
+                    foreach ($veloID in $veloIDs) {
+                        #convert feature id to obfuscated reg id
+                        $regID = ObfuscateFeatureId $veloID.id
+                        #tested using vivetool /disable sets enabledstate to 1
+                        Reg.exe add "HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\$regID" /v 'EnabledState' /t REG_DWORD /d '1' /f *>$null
+                    }
                 }
+
+                #remove the cards from the json
+                $jsonContent.addedHomeCards = $jsonContent.addedHomeCards | Where-Object { $list -notcontains $_.cardId }
+
+                takeown /f $settingsJSON *>$null
+                icacls $settingsJSON /grant *S-1-5-32-544:F /t *>$null
+
+                $newContent = $jsonContent | ConvertTo-Json -Depth 100
+                Set-Content -Path $settingsJSON -Value $newContent -Force
             }
-
-            #remove the cards from the json
-            $jsonContent.addedHomeCards = $jsonContent.addedHomeCards | Where-Object { $list -notcontains $_.cardId }
-
-            takeown /f $settingsJSON *>$null
-            icacls $settingsJSON /grant *S-1-5-32-544:F /t *>$null
-
-            $newContent = $jsonContent | ConvertTo-Json -Depth 100
-            Set-Content -Path $settingsJSON -Value $newContent -Force
         }
     }
-
 
     if (!$revert) {
         #unpin copilot 365 based on similar method from here: https://github.com/Freenitial/Pin-Taskbar
