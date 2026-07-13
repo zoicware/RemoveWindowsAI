@@ -1758,11 +1758,6 @@ public class TaskbarUnpinByAumid {
                 #wait for photos app to fully open
                 try {
                     $photos = Start-Process 'ms-photos:' -PassThru -ErrorAction Stop
-               
-                    while (!$photos.MainWindowHandle -or $photos.MainWindowHandle -eq 0) {
-                        Start-Sleep 1
-                        $photos.Refresh()
-                    }
                 }
                 catch {
                     #this version of photos is a weird placeholder app that requires the user to install the latest version from the store
@@ -1773,10 +1768,19 @@ public class TaskbarUnpinByAumid {
                 
                 #on slow machines this will kill photos app too soon not allowing it to write to settings.dat creating the structure 
                 #so wait here until settings.dat is larger than 8kb (default size for all settings.dat files)
-                while ((Get-Item $uwpPhotosSettings).Length -eq 8192) {
+                Write-Status -msg 'Waiting 1 minute max...'
+                $maxTimeOut = 0
+                while (((Get-Item $uwpPhotosSettings).Length -eq 8192) -and $maxTimeOut -lt 60) {
                     Start-Sleep 1
+                    $photos.Refresh()
+                    $maxTimeOut++
                 }
                 taskkill.exe /im Photos.exe /f *>$null
+
+                if ($maxTimeOut -ge 60) {
+                    Write-Status -msg 'Max timeout reached! Photos app was most likely updating while this script was running... reboot and run this again to apply!' -errorOutput
+                    break
+                }
                 
                 #now retry and if it fails again then this version doesnt have ai features
                 $result = $setting | Set-UwpAppRegistryEntry -FilePath $uwpPhotosSettings
