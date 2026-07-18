@@ -1132,6 +1132,8 @@ function Disable-Registry-Keys {
 
         $settingsJSON = (Get-ChildItem -Path "$env:windir\SystemApps" -Recurse).FullName | Where-Object { $_ -like '*wsxpacks\Account\SettingsExtensions.json' }
         if ($settingsJSON) {
+            'SystemSettings.exe', 'ShellExperienceHost.exe' | ForEach-Object { taskkill /f /im $_ *>$null }
+            
             $jsonContent = Get-Content $settingsJSON | ConvertFrom-Json
             $list = 'CopilotSubscriptionCard', 'CopilotSubscriptionCard_Enterprise'
 
