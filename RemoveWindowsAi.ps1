@@ -993,6 +993,17 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKCU\Software\Microsoft\Office\16.0\OneNote\Options\Copilot' /v 'CopilotSkittleEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #disable copilot in power point
     Reg.exe add 'HKCU\Software\Microsoft\Office\16.0\PowerPoint\Options' /v 'Enable Copilot in Settings' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    #copilot outlook cloud keys 
+    #NOTE: unsure the exact function of these
+    #checked value on start: 'HKEY_CURRENT_USER\Software\Policies\Microsoft\Cloud\Office\16.0\common\copilot' value: CopilotContentGeneration
+    Reg.exe add 'HKCU\Software\Policies\Microsoft\Cloud\Office\16.0\common\copilot' /v 'CopilotPinning' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKCU\Software\Policies\Microsoft\Cloud\Office\16.0\common\copilot' /v 'PinningStateforCopilotApp' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    #same path but with some guid
+    $fullPath = Resolve-Path 'HKCU:\Software\Policies\Microsoft\*\Cloud\Office\16.0\common\copilot'
+    if ($fullPath) {
+        Set-ItemProperty $fullPath.Path -Name 'CopilotPinning' -Value @('0', '1')[$revert] -Force
+        Set-ItemProperty $fullPath.Path -Name 'PinningStateforCopilotApp' -Value @('0', '1')[$revert] -Force
+    }
     #disable office ai content safety
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\general' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\alternativetext' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
