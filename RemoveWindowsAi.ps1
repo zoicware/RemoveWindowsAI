@@ -378,6 +378,32 @@ function Set-QuickEdit {
     }
 }
 
+function Check-PendingUpdates {
+
+    #check if an update is waiting for next reboot to install
+    $cbsPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
+    $autoPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
+    $rebootPending = (Test-Path $cbsPath) -or (Test-Path $autoPath)
+    #check if update is currently installing
+    $installing = (New-Object -ComObject Microsoft.Update.Installer).IsBusy
+    #zero tolerance so if either are true warn and exit script
+    if ($installing -or $rebootPending) {
+        return 1
+    }
+    else {
+        return 0
+    }
+}
+
+$pendingUpdates = Check-PendingUpdates
+if ($pendingUpdates) {
+    Write-Status -msg 'Windows Update is currently installing or pending for reboot!' -errorOutput
+    Write-Status -msg 'Finish Windows Update first and re-run this script...' -errorOutput
+    Write-Host "`nPress Any Key to Exit..."
+    [System.Console]::ReadKey() >$null
+    exit
+}
+
 #some users have messed with the system envrioment variables (for some reason) this breaks inline cmdlets like Reg.exe 
 #to fix this we can ensure the enviroment variable for this powershell session is set properly
 if ($env:PATH -notlike "*$env:SystemRoot\system32;*") {
