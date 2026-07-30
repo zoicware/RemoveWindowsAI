@@ -1952,6 +1952,7 @@ function Install-NOAIPackage {
 
                 Write-Status -msg 'Installing RemoveWindowsAI Package...'
                 try {
+                    Unblock-File "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -ErrorAction SilentlyContinue
                     Add-WindowsPackage -Online -PackagePath "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck -ErrorAction Stop >$null
                 }
                 catch {
@@ -3722,6 +3723,7 @@ function install-classicapps {
         $classicApps = "$($tempDir)ClassicApps"
     }
 
+    Get-ChildItem $classicApps -Recurse | Unblock-File -ErrorAction SilentlyContinue
     #verify binaries
     $exes = (Get-ChildItem $classicApps -Filter '*.exe' -Recurse).FullName
     $paintDetails = [PSCustomObject]@{
