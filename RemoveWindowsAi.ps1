@@ -604,6 +604,7 @@ function Set-UwpAppRegistryEntry {
 
         # since we are trying multiple times while the processes are stopping this will work as soon as the file is freed 
         do {
+            Start-Sleep -Milliseconds 200
             reg.exe LOAD $AppSettingsRegPath $FilePath *>$null
             $attempts++
         } while ($LASTEXITCODE -ne 0 -and $attempts -lt $max)
