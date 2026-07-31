@@ -4821,6 +4821,7 @@ else {
                 'aimgr.exe'
                 'AppActions.exe'
                 'M365Copilot.exe'
+                'm365copilot_autostarter.exe'
             )
             foreach ($procName in $aiProcesses) {
                 taskkill /im $procName /f *>$null
