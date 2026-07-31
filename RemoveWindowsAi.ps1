@@ -3122,7 +3122,8 @@ function Remove-AI-Files {
         $jobs = foreach ($dir in $dirs) {
             $rs = [powershell]::Create().AddScript({
                     param($dir, $aiKeyWords)
-                    (Get-ChildItem $dir -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { 
+                    if ($dir -match 'WinSxS') { $items = Get-ChildItem $dir -Recurse -Directory -ErrorAction SilentlyContinue } else { $items = Get-ChildItem $dir -Recurse -File -ErrorAction SilentlyContinue }
+                    ($items | Where-Object { 
                         $_.FullName -like "*$($aiKeyWords[0])*" -or 
                         $_.FullName -like "*$($aiKeyWords[1])*" -or 
                         $_.FullName -like "*$($aiKeyWords[2])*" -or
