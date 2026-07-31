@@ -604,6 +604,7 @@ function Set-UwpAppRegistryEntry {
 
         # since we are trying multiple times while the processes are stopping this will work as soon as the file is freed 
         do {
+            Start-Sleep -Milliseconds 200
             reg.exe LOAD $AppSettingsRegPath $FilePath *>$null
             $attempts++
         } while ($LASTEXITCODE -ne 0 -and $attempts -lt $max)
@@ -2742,7 +2743,7 @@ function Remove-AI-Files {
         $jobs = foreach ($path in $paths) {
             $rs = [powershell]::Create().AddScript({
                     param($path)
-                    (Get-ChildItem -Path $path -Directory -Force -ErrorAction SilentlyContinue | 
+                    (Get-ChildItem -Path $path -Force -ErrorAction SilentlyContinue | 
                     Where-Object { $_.FullName -like '*UserExperience-AIX*' -or 
                         $_.FullName -like '*Copilot*' -or 
                         $_.FullName -like '*UserExperience-Recall*' -or 
@@ -3121,7 +3122,8 @@ function Remove-AI-Files {
         $jobs = foreach ($dir in $dirs) {
             $rs = [powershell]::Create().AddScript({
                     param($dir, $aiKeyWords)
-                    (Get-ChildItem $dir -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { 
+                    if ($dir -match 'WinSxS') { $items = Get-ChildItem $dir -Recurse -Directory -ErrorAction SilentlyContinue } else { $items = Get-ChildItem $dir -Recurse -File -ErrorAction SilentlyContinue }
+                    ($items | Where-Object { 
                         $_.FullName -like "*$($aiKeyWords[0])*" -or 
                         $_.FullName -like "*$($aiKeyWords[1])*" -or 
                         $_.FullName -like "*$($aiKeyWords[2])*" -or
