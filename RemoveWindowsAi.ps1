@@ -2688,7 +2688,7 @@ function Remove-AI-Files {
         }
         $appsPath2 = "$env:ProgramFiles\WindowsApps"
     
-        $appsPath3 = "$env:ProgramData\Microsoft\Windows\AppRepository"
+        $appsPath3 = "$env:ProgramData\Microsoft\Windows\AppRepository\Packages"
     
         $appsPath4 = "$env:SystemRoot\servicing\Packages"
         if (!(Test-Path $appsPath4)) {
@@ -2743,7 +2743,7 @@ function Remove-AI-Files {
         $jobs = foreach ($path in $paths) {
             $rs = [powershell]::Create().AddScript({
                     param($path)
-                    (Get-ChildItem -Path $path -Force -ErrorAction SilentlyContinue | 
+                    (Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue | 
                     Where-Object { $_.FullName -like '*UserExperience-AIX*' -or 
                         $_.FullName -like '*Copilot*' -or 
                         $_.FullName -like '*UserExperience-Recall*' -or 
@@ -3122,7 +3122,8 @@ function Remove-AI-Files {
         $jobs = foreach ($dir in $dirs) {
             $rs = [powershell]::Create().AddScript({
                     param($dir, $aiKeyWords)
-                    if ($dir -match 'WinSxS') { $items = Get-ChildItem $dir -Recurse -Directory -ErrorAction SilentlyContinue } else { $items = Get-ChildItem $dir -Recurse -File -ErrorAction SilentlyContinue }
+                    $winSxS = $dir -match 'WinSxS'
+                    $items = Get-ChildItem $dir -Recurse -Directory:$winSxS -File:(!$winSxS) -ErrorAction SilentlyContinue 
                     ($items | Where-Object { 
                         $_.FullName -like "*$($aiKeyWords[0])*" -or 
                         $_.FullName -like "*$($aiKeyWords[1])*" -or 
