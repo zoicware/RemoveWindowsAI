@@ -2743,7 +2743,7 @@ function Remove-AI-Files {
         $jobs = foreach ($path in $paths) {
             $rs = [powershell]::Create().AddScript({
                     param($path)
-                    (Get-ChildItem -Path $path -Directory -Force -ErrorAction SilentlyContinue | 
+                    (Get-ChildItem -Path $path -Force -ErrorAction SilentlyContinue | 
                     Where-Object { $_.FullName -like '*UserExperience-AIX*' -or 
                         $_.FullName -like '*Copilot*' -or 
                         $_.FullName -like '*UserExperience-Recall*' -or 
