@@ -3930,7 +3930,7 @@ if ($nonInteractive) {
     else {
         $allFunctions = @(
             'DisableRegKeys' 
-            'Prevent-AI-Package-Reinstall' 
+            'PreventAIPackageReinstall' 
             'DisableCopilotPolicies' 
             'RemoveAppxPackages' 
             'RemoveRecallFeature' 
@@ -3952,7 +3952,7 @@ if ($nonInteractive) {
         #loop through options array and run desired tweaks
         switch ($activeOptions) {
             'DisableRegKeys' { Disable-Registry-Keys }
-            'Prevent-AI-Package-Reinstall' { Install-NOAIPackage }
+            'PreventAIPackageReinstall' { Install-NOAIPackage }
             'DisableCopilotPolicies' { Disable-Copilot-Policies }
             'RemoveAppxPackages' { Remove-AI-Appx-Packages }
             'RemoveRecallFeature' { Remove-Recall-Optional-Feature }
