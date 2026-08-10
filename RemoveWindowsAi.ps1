@@ -1032,6 +1032,8 @@ function Disable-Registry-Keys {
         Set-ItemProperty $fullPath.Path -Name 'CopilotPinning' -Value @('0', '1')[$revert] -Force
         Set-ItemProperty $fullPath.Path -Name 'PinningStateforCopilotApp' -Value @('0', '1')[$revert] -Force
     }
+    #disable writing assitant (not sure where this is)
+    Reg.exe add 'HKCU\Software\Microsoft\Office\16.0\WritingAssistant' /v 'Enabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #disable office ai content safety
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\general' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\office\16.0\common\ai\contentsafety\specific\alternativetext' /v 'disablecontentsafety' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
