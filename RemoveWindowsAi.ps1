@@ -91,7 +91,7 @@ Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.Windows.Forms
 
 #check if a third party av has replaced defender
-$productNames = (Get-WmiObject -Namespace root\SecurityCenter2 -Class AntiVirusProduct).displayName
+$productNames = (Get-CimInstance -Namespace root\SecurityCenter2 -ClassName AntiVirusProduct).displayName
 $thirdPartyAvName = $null
 if ($productNames.count -gt 1) {
     $thirdPartyAvName = $productNames | Where-Object { $_ -ne 'Windows Defender' }
