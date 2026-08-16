@@ -69,22 +69,42 @@ if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
     exit 1
 }
 
-If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
-    #rebuild params from $MyInvocation.BoundParameters
-    $paramStr = $MyInvocation.BoundParameters.GetEnumerator() | ForEach-Object {
-        $val = $_.Value
-        $key = $_.Key
-        switch ($val) {
-            { $val -is [switch] -or $val -is [bool] } { "-$Key"; break }
-            { $val -is [array] } { "-$key $($val -join ',')"; break }
-            default { "-$key $val" }
-        }
-        
+function Start-ElevatedScript {
+    param(
+        [AllowEmptyString()]
+        [string]$ScriptPath,
+        [System.Collections.IDictionary]$BoundParameters = @{}
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ScriptPath) -or !(Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
+        throw 'Administrator elevation requires a saved script file. Save RemoveWindowsAi.ps1 locally and run that file instead of invoking it from memory.'
     }
 
-    $arglist = "-NoProfile -ExecutionPolicy Bypass -C `"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1'))) $($paramStr -join ' ')`""
-    Start-Process PowerShell.exe -ArgumentList $arglist -Verb RunAs
-    Exit	
+    $resolvedScriptPath = (Resolve-Path -LiteralPath $ScriptPath -ErrorAction Stop).ProviderPath
+    $scriptPathBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($resolvedScriptPath))
+    $serializedParameters = [Management.Automation.PSSerializer]::Serialize($BoundParameters)
+    $parameterBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($serializedParameters))
+    $elevationCommand = @"
+`$scriptPath = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$scriptPathBase64'))
+`$serializedParameters = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$parameterBase64'))
+`$boundParameters = [Management.Automation.PSSerializer]::Deserialize(`$serializedParameters)
+& `$scriptPath @boundParameters
+"@
+    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($elevationCommand))
+    $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+
+    Start-Process -FilePath $powerShellPath -ArgumentList @(
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-EncodedCommand',
+        $encodedCommand
+    ) -Verb RunAs -ErrorAction Stop
+}
+
+If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
+    Start-ElevatedScript -ScriptPath $PSCommandPath -BoundParameters $MyInvocation.BoundParameters
+    Exit
 }
 
 Add-Type -AssemblyName PresentationFramework
