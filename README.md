@@ -43,6 +43,8 @@ The current 25H2 build of Windows 11 and future builds will include increasingly
    - Forcibly removes all instances of Windows AI scheduled tasks
   - **Update Cleanup Check**
      - Creates scheduled task to check if Windows has been updated and if it has, newly installed AI features will be removed
+  - **Disable Defender AI**
+     - Disables the Defender AI Platform host process and settings
 
  - #### Install Classic Apps
    - These options will allow you to replace the modern AI infested apps with their classic version
