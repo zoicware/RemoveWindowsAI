@@ -11,7 +11,8 @@ param(
         'HideAIComponents',            
         'DisableRewrite',       
         'RemoveWindowsAITasks',
-        'UpdateCleanupCheck')]
+        'UpdateCleanupCheck',
+        'DisableDefenderAI')]
     [array]$Options,
     [switch]$AllOptions,
     [switch]$revertMode,
@@ -3368,6 +3369,38 @@ function Create-ScriptShortcut {
     }
 }
 
+function Disable-DefenderAI {
+    if (!$revert) {
+        Write-Status -msg 'Disabling Defender AI...'
+        $aiSettings = @(
+            'AiAgentProtection',
+            'AiAgentNetworkInspection'
+        )
+
+        try {
+            $aiSettingsProps = Get-MpPreference -ErrorAction Stop
+            #if either of them are not disabled then disable both
+            if ($aiSettingsProps.$($aiSettings[0]) -ne 0 -or $aiSettingsProps.$($aiSettings[1]) -ne 0) {
+                $aiSettings | ForEach-Object {
+                    $param = @{ $_ = 'Disabled' }
+                    Set-MpPreference @param
+                }
+            }  
+        }
+        catch { <#defender provider isnt working so its either disabled or removed#> }
+        
+    }
+    if (!$revert) {
+        Write-Status -msg 'Blocking Defender AI Host Process...'
+        #prevent defender host ai process from running
+        Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\DefenderAiPlatformHost.exe' /v 'Debugger' /t REG_SZ /d 'taskkill.exe' /f *>$null
+    }
+    else {
+        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\DefenderAiPlatformHost.exe' /f *>$null
+    }
+    
+}
+
 #===============================================================================================================================
 #
 #                                             CLASSIC APP INSTALL FUNCTIONS
@@ -3942,6 +3975,7 @@ if ($nonInteractive) {
             'DisableRewrite'
             'RemoveWindowsAITasks' 
             'UpdateCleanupCheck' 
+            'DisableDefenderAI'
         )
         #remove excluded options from the array
         $activeOptions = if ($ExcludeOptions) {
@@ -3964,6 +3998,7 @@ if ($nonInteractive) {
             'DisableRewrite' { Disable-Notepad-Rewrite }
             'RemoveWindowsAITasks' { Remove-WindowsAI-Tasks }
             'UpdateCleanupCheck' { Update-Cleanup-Check }
+            'DisableDefenderAI' { Disable-DefenderAI }
         }
     }
 
@@ -3991,6 +4026,7 @@ else {
         'Disable-Notepad-Rewrite'        = 'Disables the AI Rewrite feature in Windows Notepad through registry modifications and group policy settings.'
         'Remove-WindowsAI-Tasks'         = 'Removes Windows AI scheduled tasks from Task Scheduler to prevent AI data collection processes from running.'
         'Update-Cleanup-Check'           = 'Creates a silent scheduled task to run at log-on to check if Windows has been updated... if it has then the script will cleanup newly installed AI features'
+        'Disable-DefenderAI'             = 'Disables Windows Defender AI Platform Host process and features.'
     }
 
     $window = New-Object System.Windows.Window
@@ -4128,7 +4164,8 @@ else {
         'Hide-AI-Components'            
         'Disable-Notepad-Rewrite'       
         'Remove-WindowsAI-Tasks'
-        'Update-Cleanup-Check'          
+        'Update-Cleanup-Check'
+        'Disable-DefenderAI'        
     )
 
     $unchecked = @(
@@ -4888,6 +4925,7 @@ else {
                         'Disable-Notepad-Rewrite' { Disable-Notepad-Rewrite }
                         'Remove-WindowsAI-Tasks' { Remove-WindowsAI-Tasks }
                         'Update-Cleanup-Check' { Update-Cleanup-Check }
+                        'Disable-DefenderAI' { Disable-DefenderAI }
                         'Install-Classic-Photoviewer' { install-classicapps -app 'photoviewer' }
                         'Install-Classic-Mspaint' { install-classicapps -app 'mspaint' }
                         'Install-Classic-SnippingTool' { install-classicapps -app 'snippingtool' }
