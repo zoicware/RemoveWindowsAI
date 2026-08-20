@@ -434,7 +434,7 @@ if ($EnableLogging) {
 
     #create info object
     $Global:logInfo = [PSCustomObject]@{
-        Line   = $null
+        Info   = $null
         Result = $null
     }
 }
@@ -459,16 +459,20 @@ $Global:tempDir = ([System.IO.Path]::GetTempPath())
 
 function Add-LogInfo {
     param(
+        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
+        $pipeOutput,
         [string]$logPath,
-        $info
+        $customInfo
     )
 
-    $content = @"
-    ====================================
-    Line: $($info.Line)
-    Result: $($info.Result)
-"@
-
+    $time = (Get-Date -Format o) -replace ':', '.'
+    if ($customInfo) {
+        $content = "[$time] | Result: $($customInfo.Result) | Additional Info: $($customInfo.Info)"
+    }
+    else {
+        $content = "[$time] | Result: $pipeOutput" 
+    }
+    
     Add-Content $logPath -Value $content | Out-Null
 }
 
@@ -2469,7 +2473,7 @@ foreach ($choice in $aipackagesarray) {
             if ($packages) {
                 $attempts++
                 if ($EnableLogging) {
-                    $Global:logInfo.Line = "Attempting to Remove Appx Packages, Attempt: $attempts"
+                    $Global:logInfo.Info = "Attempting to Remove Appx Packages, Attempt: $attempts"
                     $Global:logInfo.Result = "Found Packages: $packages"
                     Add-LogInfo -logPath $logPath -info $Global:logInfo
                 }
@@ -2482,13 +2486,13 @@ foreach ($choice in $aipackagesarray) {
         if ($EnableLogging) {
             if ($attempts -ge 10) {
                 Write-Status -msg 'Packages Removal Failed...' -errorOutput 
-                $Global:logInfo.Line = 'Removing Appx Packages'
+                $Global:logInfo.Info = 'Removing Appx Packages'
                 $Global:logInfo.Result = "Removal Failed, Reached Max Attempts (10)... Leftover Packages: $packages"
                 Add-LogInfo -logPath $logPath -info $Global:logInfo
             }
             else {
                 Write-Status -msg 'Packages Removed Sucessfully...'
-                $Global:logInfo.Line = 'Removing Appx Packages'
+                $Global:logInfo.Info = 'Removing Appx Packages'
                 $Global:logInfo.Result = 'Removal Success'
                 Add-LogInfo -logPath $logPath -info $Global:logInfo
             }
