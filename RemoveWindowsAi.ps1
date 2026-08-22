@@ -1190,10 +1190,6 @@ function Disable-Registry-Keys {
     }
 
     if (!$revert) {
-        #unpin copilot 365 based on similar method from here: https://github.com/Freenitial/Pin-Taskbar
-        #since this is 'SystemPinned' theres no actual lnk file associated with the pin so we can just remove the AUMID
-        $Aumid = 'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
-
         Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -1255,36 +1251,49 @@ public class TaskbarUnpinByAumid {
 }
 '@
 
-        Write-Status -msg 'Unpinning Copilot 365 from Taskbar...'
-        $TaskBand = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband', $true)
-        $Favorites = $TaskBand.GetValue('Favorites', $null, 'DoNotExpandEnvironmentNames')
-        $FavoritesResolve = $TaskBand.GetValue('FavoritesResolve', $null, 'DoNotExpandEnvironmentNames')
+        #unpin copilot 365 based on similar method from here: https://github.com/Freenitial/Pin-Taskbar
+        #since this is 'SystemPinned' theres no actual lnk file associated with the pin so we can just remove the AUMID
+        $aumids = @(
+            'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe!Microsoft.MicrosoftOfficeHub'
+            'Microsoft.Copilot_8wekyb3d8bbwe!App'
+        )
+       
+        foreach ($aumid in $aumids) {
+            $TaskBand = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband', $true)
+            $Favorites = $TaskBand.GetValue('Favorites', $null, 'DoNotExpandEnvironmentNames')
+            $FavoritesResolve = $TaskBand.GetValue('FavoritesResolve', $null, 'DoNotExpandEnvironmentNames')
+            $name = ($aumid -split '_')[0]
 
-        try {
-            $Idx = [TaskbarUnpinByAumid]::FindEntry($Favorites, $Aumid)
-        }
-        catch {}
-        if ($Idx -lt 0 -or $Idx -eq $null) {
-            Write-Status -msg 'Copilot 365 is already unpinned...'
-            $TaskBand.Close()
-        }
-        else {
-            $Favorites = [TaskbarUnpinByAumid]::RemoveFavEntry($Favorites, $Idx)
-            if ($FavoritesResolve) { 
-                $FavoritesResolve = [TaskbarUnpinByAumid]::RemoveResEntry($FavoritesResolve, $Idx) 
+            try {
+                $Idx = [TaskbarUnpinByAumid]::FindEntry($Favorites, $Aumid)
+            }
+            catch {}
+            if ($Idx -lt 0 -or $Idx -eq $null) {
+                Write-Status -msg "$name is already unpinned..."
+                $TaskBand.Close()
+            }
+            else {
+                Write-Status -msg "Unpinning $name from taskbar..."
+                $Favorites = [TaskbarUnpinByAumid]::RemoveFavEntry($Favorites, $Idx)
+                if ($FavoritesResolve) { 
+                    $FavoritesResolve = [TaskbarUnpinByAumid]::RemoveResEntry($FavoritesResolve, $Idx) 
+                }
+
+                $Changes = [int]$TaskBand.GetValue('FavoritesChanges', 0, 'DoNotExpandEnvironmentNames')
+                $TaskBand.SetValue('Favorites', $Favorites, 'Binary')
+                if ($FavoritesResolve) { 
+                    $TaskBand.SetValue('FavoritesResolve', $FavoritesResolve, 'Binary') 
+                }
+                $TaskBand.SetValue('FavoritesVersion', 3, 'DWord')
+                $TaskBand.SetValue('FavoritesChanges', $Changes + 1, 'DWord')
+                $TaskBand.Close()
+                #refresh taskbar
+                [TaskbarUnpinByAumid]::SendPinNotify()
             }
 
-            $Changes = [int]$TaskBand.GetValue('FavoritesChanges', 0, 'DoNotExpandEnvironmentNames')
-            $TaskBand.SetValue('Favorites', $Favorites, 'Binary')
-            if ($FavoritesResolve) { 
-                $TaskBand.SetValue('FavoritesResolve', $FavoritesResolve, 'Binary') 
-            }
-            $TaskBand.SetValue('FavoritesVersion', 3, 'DWord')
-            $TaskBand.SetValue('FavoritesChanges', $Changes + 1, 'DWord')
-            $TaskBand.Close()
-            #refresh taskbar
-            [TaskbarUnpinByAumid]::SendPinNotify()
         }
+
+     
 
 
         #unpin ai from startmenu
