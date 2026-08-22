@@ -535,26 +535,6 @@ function Create-RestorePoint {
 
 }
 
-function Restart-Explorer {
-    try {
-        Stop-Process -name explorer -Force -ErrorAction Stop
-    }
-    catch {
-        #try taskkill instead if stop process doesnt work for some reason
-        taskkill.exe /F /IM 'explorer.exe' *>$null
-    }
-    #sleep for 10 seconds and start explorer if not auto starting
-    $time = 10
-    do {
-        $time--
-        Start-Sleep 1
-    }while (!(Get-Process explorer -ErrorAction SilentlyContinue) -and $time -ne 0)
-    if ($time -eq 0) {
-        Start-Process explorer
-    }
-  
-}
-
 function Set-UwpAppRegistryEntry {
     # modified to work in windows powershell from https://github.com/agadiffe/WindowsMize/blob/fe78912ccb1c83d440bd2123f5e43a6156fab31a/src/modules/applications/settings/public/Set-UwpAppSetting.ps1
     <# 
@@ -1357,7 +1337,6 @@ public class TaskbarUnpinByAumid {
                 #apply policy and force start to refresh pinned app cache
                 Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPins' /t REG_DWORD /d '1' /f >$null
                 Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'ConfigureStartPinsJSON' /t REG_SZ /d "$layoutPath" /f >$null
-                Restart-Explorer
                 Start-Sleep 1
                 $wshell = New-Object -ComObject wscript.shell
                 $wshell.SendKeys('^{ESC}')
