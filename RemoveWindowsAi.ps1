@@ -2324,7 +2324,6 @@ function Remove-AI-Appx-Packages {
             'MicrosoftWindows.*.Voiess'
             'MicrosoftWindows.*.Speion'
             'MicrosoftWindows.*.Livtop'
-            'MicrosoftWindows.*.InpApp'
             'MicrosoftWindows.*.Filons'
             #ai component packages installed on copilot+ pcs
             'WindowsWorkload.Data.Analysis*'
@@ -2578,9 +2577,14 @@ function Remove-AI-CBS-Packages {
         $ProgressPreference = 'SilentlyContinue'
         Get-ChildItem $regPath | ForEach-Object {
             $value = try { Get-ItemPropertyValue "registry::$($_.Name)" -Name Visibility -ErrorAction Stop } catch { $null }
-    
+
             if ($value -ne $null) {
-                if ($value -eq 2 -and $_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*') {
+                # Visibility must be 2 (hidden) for ALL patterns, not just AIX - missing parens previously let
+                # Recall/Copilot/CoreAI match any package regardless of visibility, and a hard exclude list
+                # protects shared/text-input components that must never be force-removed this way.
+                $isHiddenAiPackage = $value -eq 2 -and ($_.PSChildName -like '*AIX*' -or $_.PSChildName -like '*Recall*' -or $_.PSChildName -like '*Copilot*' -or $_.PSChildName -like '*CoreAI*')
+                $isProtected = $_.PSChildName -match 'Client\.CBS|TextInput|InputApp|Client\.CBSPreview'
+                if ($isHiddenAiPackage -and -not $isProtected) {
                     Set-ItemProperty "registry::$($_.Name)" -Name Visibility -Value 1 -Force
                     New-ItemProperty "registry::$($_.Name)" -Name DefVis -PropertyType DWord -Value 2 -Force | Out-Null
                     Remove-Item "registry::$($_.Name)\Owners" -Force -ErrorAction SilentlyContinue
@@ -2679,7 +2683,6 @@ function Remove-AI-Files {
             'Voiess'
             'Speion'
             'Livtop'
-            'InpApp'
             'Filons'
         )
 
