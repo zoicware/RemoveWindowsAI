@@ -111,154 +111,62 @@ if ($thirdPartyAvName) {
 
 function Run-Trusted([String]$command, $psversion) {
 
-    #run as ti by aveyo refactored for powershell use only
-    #no powershell window flash
-    #removed reg sym link as its not needed
-    #fixed some issues with reflection methods
-    function Invoke-AsTrustedInstaller {
-        param(
-            [string]$Code
-        )
-
-        $userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-        $regKey = "Registry::HKU\$userSid\Volatile Environment"
-        $userCodeValue = 'TI_Code'
-        $payloadValue = 'TI_Payload'
-        $bootstrapValue = 'TI_Bootstrap'
-
-        Set-ItemProperty $regKey $userCodeValue $Code -Type 1 # REG_SZ
-
-        #Bootstrap to run payload
-        $bootstrap = @"
-`$env:R = (Get-Item 'Registry::HKU\$userSid\Volatile Environment' -EA 0).GetValue('$($payloadValue)') -join `"``n`";
-iex `$env:R
-"@
-        Set-ItemProperty $regKey $bootstrapValue $bootstrap -Type 1 # REG_SZ
-
-        #Reflection / P-Invoke payload 
-        $payload = @'
-$I=[int32];$M=$I.module.gettype("System.Runtime.InteropServices.Marshal")
-$P=[IntPtr];$S=[string];$Z=[uintptr]::size
-$D=@();$T=@()
-$DM=[AppDomain]::CurrentDomain.DefineDynamicAssembly(1,1).DefineDynamicModule(1)
-0..5 | ForEach-Object { $D += $DM.DefineType("AveYo_$_", 265, [ValueType]) }
-$D += [uintptr]
-4..6 | ForEach-Object { $D += $D[$_].MakeByRefType() }
-$F = 'kernel','advapi','advapi',
-     ([string],[string],[int32],[int32],[int32],[int32],[int32],[string],$D[7],$D[8]),
-     ([uintptr],[string],[int32],[int32],$D[9]),
-     ([uintptr],[string],[int32],[int32],[byte[]],[int32])
-0..2 | ForEach-Object {
-    $D[0].DefinePInvokeMethod(
-        ('CreateProcess','RegOpenKeyEx','RegSetValueEx')[$_],
-        $F[$_]+'32', 8214, 1, $S, $F[$_+3], 1, 4
-    )
-}
-$DF = ($P,$I,$P),
-      ($I,$I,$I,$I,$P,$D[1]),
-      ($I,$S,$S,$S,$I,$I,$I,$I,$I,$I,$I,$I,[int16],[int16],$P,$P,$P,$P),
-      ($D[3],$P),
-      ($P,$P,$I,$I)
-1..5 | ForEach-Object {
-    $k = $_; $n = 1
-    $DF[$_-1] | ForEach-Object { $D[$k].DefineField('f'+$n++, $_, 6) }
-}
-0..5 | ForEach-Object { $T += $D[$_].CreateType() }
-0..5 | ForEach-Object { New-Variable "A$_" ([Activator]::CreateInstance($T[$_])) -Force }
-function Invoke-NativeMethod($Name, $MethodArgs) {
-    $T[0].GetMethod($Name).Invoke($null, [object[]]$MethodArgs)
-}
-function Invoke-MarshalMethod($Name, [type[]]$Types, $MethodArgs) {
-    $M.GetMethod($Name, [type[]]$Types).Invoke($null, [object[]]$MethodArgs)
-}
-$privMethod = [Diagnostics.Process].GetMember('SetPrivilege', 42)[0]
-'SeSecurityPrivilege','SeTakeOwnershipPrivilege','SeBackupPrivilege','SeRestorePrivilege' |
-    ForEach-Object { $privMethod.Invoke($null, @("$_", 2)) }
-$targetProcess = $null
-'TrustedInstaller','lsass','winlogon' | ForEach-Object {
-    if (!$targetProcess) {
-        sc.exe start $_ 2>$null
-        Start-Sleep -Milliseconds 500
-        $targetProcess = @(Get-Process -Name $_ -EA 0)[0]
+    #runasti by aveyo https://github.com/AveYo/LeanAndMean/blob/main/RunAsTI.ps1
+    #fix applied from https://github.com/AveYo/LeanAndMean/issues/23
+    #additional modifications by @haslate
+    #zoicware: modified to have no window flash and for powershell use only
+    function RunAsTI {
+        param([Parameter(Position = 0)]$cmd, [switch]$Exit, [Parameter(ValueFromRemainingArguments)]$xargs)
+        $Ex = $Exit.IsPresent -or $xargs -contains '-Exit'; $xargs = $xargs | Where-Object { $_ -ne '-Exit' }
+        $wi = [Security.Principal.WindowsIdentity]::GetCurrent(); $TI = $wi.User.Value -eq 'S-1-5-18' -or $wi.Name -eq 'NT SERVICE\TrustedInstaller'
+        $id = 'RunAsTI'; $key = "Registry::HKU\$($wi.User.Value)\Volatile Environment"; $arg = ''
+        if ($xargs) { $arg = $xargs -join ' ' }; if ($Ex) { $t = [AppDomain]::CurrentDomain.DefineDynamicAssembly((new-object Reflection.AssemblyName('Z')), 1).DefineDynamicModule('Z').DefineType('Z'); $null = $t.DefinePInvokeMethod('ShowWindow', 'user32.dll', 22, 1, [bool], [Type[]]([IntPtr], [int]), 1, 2); $g = $t.CreateType(); $j = [Diagnostics.Process]::GetCurrentProcess().MainWindowHandle; $null = $g::ShowWindow($j, 0) }
+        $V = ''; 'cmd', 'arg', 'id', 'key' | ForEach-Object { $V += "`n`$$_='$($(Get-Variable $_ -val)-replace"'","''")';" }
+        $code = @'
+ $I=[int32];$M=$I.module.gettype("System.Runtime.Interop`Services.Mar`shal");$P=$I.module.gettype("System.Int`Ptr");$S=[string]
+ $D=@();$T=@();$DM=[AppDomain]::CurrentDomain."DefineDynami`cAssembly"(1,1)."DefineDynami`cModule"(1);$Z=[uintptr]::size
+ 0..5|%{$D+=$DM."Defin`eType"("AveYo_$_",1179913,[ValueType])};$D+=[uintptr];4..6|%{$D+=$D[$_]."MakeByR`efType"()}
+ $F='kernel','advapi','advapi','kernel','kernel',($S,$S,$I,$I,$I,$I,$I,$S,$D[7],$D[8]),([uintptr],$S,$I,$I,$D[9]),([uintptr],$S,$I,$I,[byte[]],$I),($P,$I,$I,[IntPtr]."MakeByR`efType"()),($P,$I,$I,$P,$I,$I,$I)
+ 0..4|%{$9=$D[0]."DefinePInvok`eMethod"(('CreateProcess','RegOpenKeyEx','RegSetValueEx','InitializeProcThreadAttributeList','UpdateProcThreadAttribute')[$_],$F[$_]+'32',8214,1,$S,$F[$_+5],1,4)}
+ $DF=($P,$I,$P),($I,$I,$I,$I,$P,$D[1]),($I,$S,$S,$S,$I,$I,$I,$I,$I,$I,$I,$I,[int16],[int16],$P,$P,$P,$P),($D[3],$P),($P,$P,$I,$I)
+ 1..5|%{$k=$_;$n=1;$DF[$_-1]|%{$9=$D[$k]."Defin`eField"('f'+$n++,$_,6)}};0..5|%{$T+=$D[$_]."Creat`eType"()}
+ 0..5|%{nv "A$_" ([Activator]::CreateInstance($T[$_])) -fo};function F($1,$2){$T[0]."G`etMethod"($1).invoke(0,$2)}
+ $wi=[Security.Principal.WindowsIdentity]::GetCurrent();$TI=$wi.User.Value-eq'S-1-5-18'-or$wi.Name-eq'NT SERVICE\TrustedInstaller';$As=$null
+ if(!$TI){foreach($n in 'TrustedInstaller','winlogon'){$As=@(gps -name $n -ea 0)[0];if($As){break}
+ $null=sc.exe start $n 2>$null;$As=@(gps -name $n -ea 0)[0];if($As){break}}
+ function M($1,$2,$3){$M."G`etMethod"($1,[type[]]$2).invoke(0,$3)}try{$H=@();$Z,(4*$Z+16)|%{$H+=M "AllocHGlobal" $I $_}
+ M "WriteIntPtr" ($P,$P) ($H[0],$As.Handle);$A3.f1=10*$Z+32;$A3.f12=1;$A3.f13=0;$A4.f1=$A3
+ F 'InitializeProcThreadAttributeList' @($H[1],1,0,[IntPtr](4*$Z+16))
+ F 'UpdateProcThreadAttribute' @($H[1],0,0x20000,$H[0],$P::Size,0,0)
+ }catch{rp $key $id -force;return}$A4.f2=$H[1]
+ $Run=@($null,"powershell -nop -c iex `$env:R; # $id",0,0,0,0x0E080600,0,$null,($A4-as$T[4]),($A5-as$T[5]))
+ try{F 'CreateProcess' $Run}catch{rp $key $id -force;return}if(!$A5.f3){rp $key $id -force;return}
+ return};$env:R='';rp $key $id -force -ea 0;$priv=[diagnostics.process]."GetM`ember"('SetPrivilege',42)[0]
+ 'SeSecurityPrivilege','SeTakeOwnershipPrivilege','SeBackupPrivilege','SeRestorePrivilege'|%{$priv.Invoke($null,@("$_",2))}
+ $HKU=[uintptr][uint32]2147483651;$NT='S-1-5-18';$reg=($HKU,$NT,8,2,($HKU-as$D[9]));F 'RegOpenKeyEx' $reg;$LNK=$reg[4]
+ function L($1,$2,$3){sp 'HKLM:\SOFTWARE\Classes\AppID\{CDCBCFCA-3CDC-436f-A4E2-0E02075250C2}' 'RunAs' $3
+ $b=[Text.Encoding]::Unicode.GetBytes("\Registry\User\$1");F 'RegSetValueEx' @($2,'SymbolicLinkValue',0,6,[byte[]]$b,$b.Length)}
+ try{L ($key-split'\\')[1] $LNK '';$psi=New-Object Diagnostics.ProcessStartInfo;$psi.FileName=$cmd;$psi.Arguments=$arg;$psi.UseShellExecute=$false;$psi.CreateNoWindow=$true;$psi.WindowStyle='Hidden';$R=[diagnostics.process]::start($psi);if($R){$R.PriorityClass='High';$R.WaitForExit()}}finally{L '.Default' $LNK 'Interactive User'}
+'@; if ($TI) { try { Invoke-Expression "$V`n$code" }catch { if ($j) { $null = $g::ShowWindow($j, 1) }; throw }; if ($Ex) { [Environment]::Exit(0) }; return }
+        Set-ItemProperty $key $id $($V, $code) -type 7 -force -ea 0; $a = "-nop -c `n$V `$env:R=(gi `$key -ea 0).getvalue(`$id)-join''; iex `$env:R"
+        try { (new-object -com shell.application).shellexecute('powershell', $a, '', 'runas', 0) }catch { Remove-ItemProperty $key $id -force -ea 0; if ($j) { $null = $g::ShowWindow($j, 1) }; throw }; if ($Ex) { [Environment]::Exit(0) }
     }
-}
-$handles = @()
-$Z, (4*$Z+16) | ForEach-Object {
-    $handles += Invoke-MarshalMethod 'AllocHGlobal' @([int32]) @([int32]$_)
-}
-Invoke-MarshalMethod 'WriteIntPtr' @([IntPtr],[IntPtr]) @($handles[0], $targetProcess.Handle)
-$A1.f1 = 131072; $A1.f2 = $Z; $A1.f3 = $handles[0]
-$A2.f1 = 1; $A2.f2 = 1; $A2.f3 = 1; $A2.f4 = 1; $A2.f6 = $A1
-$A3.f1 = 10*$Z+32
-$A4.f1 = $A3; $A4.f2 = $handles[1]
-Invoke-MarshalMethod 'StructureToPtr' @([object],[IntPtr],[bool]) @(($A2 -as $D[2]), $A4.f2, $false)
-$HKU     = [uintptr][uint32]2147483651
-$NT      = 'S-1-5-18'
-$regArgs = @($HKU, $NT, 8, 2, ($HKU -as $D[9]))
-Invoke-NativeMethod 'RegOpenKeyEx' $regArgs
-$hkuLink = $regArgs[4]
-# Retrieve the SID that was appended to the payload by the outer function
-$currentSid = ($env:R -split '###SID###')[2].trim()
-# Read TI_Code and base64-encode it to pass safely into CreateProcess command line
-$rawCode = (Get-Item 'HKCU:\Volatile Environment' -EA 0).GetValue('TI_Code')
-$encodedCode = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($rawCode))
-$createResult = Invoke-NativeMethod 'CreateProcess' @(
-    $null,
-    "powershell -win hidden -nop -ep bypass -enc $encodedCode",
-    0, 0, 0, 0x0E080600, 0, $null,
-    ($A4 -as $T[4]),
-    ($A5 -as $T[5])
-)
-$childInfo = $A5 -as $T[5]
-if ($childInfo.f1 -ne [IntPtr]::Zero) {
-    $childProc = [Diagnostics.Process]::GetProcessById(
-        [Runtime.InteropServices.Marshal]::ReadInt32($childInfo.f2)
-    )
-    if ($childProc) { $childProc.WaitForExit() }
-}
-$env:R = ''
-'@
-
-        #add user sid in comment to get later
-        Set-ItemProperty $regKey $payloadValue "$payload`n###SID###$userSid" -Type 1 # REG_SZ
-    
-        #run payload
-        $wshell = New-Object -ComObject WScript.Shell
-        $wshell.Run(
-            "powershell.exe -win hidden -nop -ep bypass -c iex((gi 'Registry::HKU\$userSid\Volatile Environment').GetValue('TI_Bootstrap'))",
-            0,
-            $true
-        ) | Out-Null
-     
-        #Cleanup 
-        Remove-ItemProperty $regKey $userCodeValue  -Force -EA 0
-        Remove-ItemProperty $regKey $payloadValue   -Force -EA 0
-        Remove-ItemProperty $regKey $bootstrapValue -Force -EA 0
-        $env:B = ''
-    }
-
 
     $psexe = 'PowerShell.exe'
+
+    taskkill /im trustedinstaller.exe /f >$null
+
+    # trusted installer proc not found (128) or access denied (1)
+    if ($LASTEXITCODE -eq 128 -or $LASTEXITCODE -eq 1) {
+        Write-Status -msg 'Failed to stop TrustedInstaller.exe... Using fallback method!' -warningOutput
+        RunAsTI $psexe $command
+        Start-Sleep 1
+        return 
+    }
 
     #convert command to base64 to avoid errors with spaces
     $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
     $base64Command = [Convert]::ToBase64String($bytes)
-
-
-    try {
-        Stop-Service -Name TrustedInstaller -Force -ErrorAction Stop -WarningAction Stop
-    }
-    catch {
-        taskkill /im trustedinstaller.exe /f >$null
-    }
-    
-    # trusted installer proc not found (128) or access denied (1)
-    if ($LASTEXITCODE -eq 128 -or $LASTEXITCODE -eq 1) {
-        Write-Status -msg 'Failed to stop TrustedInstaller.exe... Using fallback method!' -warningOutput
-        Invoke-AsTrustedInstaller -Code $command
-        Start-Sleep 1
-        return 
-    }
 
     #get bin path to revert later
     $service = Get-CimInstance -ClassName Win32_Service -Filter "Name='TrustedInstaller'"
