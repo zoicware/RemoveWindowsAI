@@ -1094,7 +1094,7 @@ function Disable-Registry-Keys {
         )
         #some packages wont have a manifest file so check before getting its info
         $packages = Get-AppxPackage -AllUsers | Where-Object { (Test-Path "$($_.InstallLocation)\AppXManifest.xml") -eq $true }
-        $contextMenuExtensions = ($packages | Get-AppxPackageManifest -ErrorAction SilentlyContinue) | ForEach-Object { $_.package.Applications.Application.Extensions.Extension.FileExplorerContextMenus.itemtype.verb } | Select-Object  Id, Clsid -unique
+        $contextMenuExtensions = ($packages | ForEach-Object { try { Get-AppxPackageManifest $_ -ErrorAction Stop }catch { continue } }) | ForEach-Object { $_.package.Applications.Application.Extensions.Extension.FileExplorerContextMenus.itemtype.verb } | Select-Object  Id, Clsid -unique
         foreach ($ext in $contextMenuExtensions) {
             if ($aiContextMenus -contains $ext.Id) {
                 Reg.exe add 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked' /v "{$($ext.Clsid)}" /t REG_SZ /d "$($ext.Id)" /f *>$null
