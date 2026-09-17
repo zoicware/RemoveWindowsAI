@@ -91,19 +91,46 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.Windows.Forms
 
-#check if a third party av has replaced defender
-$productNames = (Get-CimInstance -Namespace root\SecurityCenter2 -ClassName AntiVirusProduct).displayName
-$thirdPartyAvName = $null
-if ($productNames.count -gt 1) {
-    $thirdPartyAvName = $productNames | Where-Object { $_ -ne 'Windows Defender' }
-}
-elseif ($productNames -ne 'Windows Defender') {
-    $thirdPartyAvName = $productNames
+#converts product state int to be human readable 
+function Convert-ProductState {
+    param(
+        [int]$stateInt
+    )
+
+    $hex = '0x{0:x}' -f $stateInt
+    $sub = $hex.Substring(3, 2)
+
+    #https://learn.microsoft.com/en-us/windows/win32/api/iwscapi/ne-iwscapi-wsc_security_product_state
+    return $(switch ($sub) {
+            '00' { 'OFF' }
+            '01' { 'EXPIRED' }
+            '10' { 'ON' }
+            '11' { 'SNOOZED' }
+            default { 'UNKNOWN' }
+        })
 }
 
-if ($thirdPartyAvName) {
+#check if a third party av has replaced defender
+$avproducts = Get-CimInstance -Namespace root\SecurityCenter2 -ClassName AntiVirusProduct
+$thirdPartyAv = $null
+if ($avproducts.count -gt 1) {
+    $thirdPartyAv = $avproducts | Where-Object { $_.displayName -ne 'Windows Defender' } | ForEach-Object {
+        [PSCustomObject]@{
+            Name  = $_.displayName
+            State = Convert-ProductState $_.productState
+        }
+    } 
+}
+elseif ($avproducts.displayName -ne 'Windows Defender') {
+    $thirdPartyAv = [PSCustomObject]@{
+        Name  = $avproducts.displayName
+        State = Convert-ProductState $avproducts.productState
+    }
+}
+
+if ($thirdPartyAv -and ($thirdPartyAv.State -eq 'ON' -or $thirdPartyAv.State -eq 'SNOOZED')) {
     Write-Host 'WARNING: A third-party anti-virus has been detected!' -ForegroundColor Yellow
-    Write-Host "The anti-virus: $thirdPartyAvName, may falsely block/break this script!" -ForegroundColor Yellow
+    Write-Host "The anti-virus: $($thirdPartyAv.Name), may falsely block/break this script!" -ForegroundColor Yellow
     Write-Host 'Please disable or uninstall this anti-virus temporarily or proceed with caution!' -ForegroundColor Yellow
     Write-Host "`nPress Any Key to Continue..."
     [System.Console]::ReadKey() >$null
