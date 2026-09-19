@@ -138,55 +138,59 @@ if ($thirdPartyAv -and ($thirdPartyAv.State -eq 'ON' -or $thirdPartyAv.State -eq
 
 function Run-Trusted([String]$command, $psversion) {
 
-    #runasti by aveyo https://github.com/AveYo/LeanAndMean/blob/main/RunAsTI.ps1
-    #fix applied from https://github.com/AveYo/LeanAndMean/issues/23
-    #additional modifications by @haslate
-    #zoicware: modified to have no window flash and for powershell use only
-    function RunAsTI {
-        param([Parameter(Position = 0)]$cmd, [switch]$Exit, [Parameter(ValueFromRemainingArguments)]$xargs)
-        $Ex = $Exit.IsPresent -or $xargs -contains '-Exit'; $xargs = $xargs | Where-Object { $_ -ne '-Exit' }
-        $wi = [Security.Principal.WindowsIdentity]::GetCurrent(); $TI = $wi.User.Value -eq 'S-1-5-18' -or $wi.Name -eq 'NT SERVICE\TrustedInstaller'
-        $id = 'RunAsTI'; $key = "Registry::HKU\$($wi.User.Value)\Volatile Environment"; $arg = ''
-        if ($xargs) { $arg = $xargs -join ' ' }; if ($Ex) { $t = [AppDomain]::CurrentDomain.DefineDynamicAssembly((new-object Reflection.AssemblyName('Z')), 1).DefineDynamicModule('Z').DefineType('Z'); $null = $t.DefinePInvokeMethod('ShowWindow', 'user32.dll', 22, 1, [bool], [Type[]]([IntPtr], [int]), 1, 2); $g = $t.CreateType(); $j = [Diagnostics.Process]::GetCurrentProcess().MainWindowHandle; $null = $g::ShowWindow($j, 0) }
-        $V = ''; 'cmd', 'arg', 'id', 'key' | ForEach-Object { $V += "`n`$$_='$($(Get-Variable $_ -val)-replace"'","''")';" }
-        $code = @'
- $I=[int32];$M=$I.module.gettype("System.Runtime.Interop`Services.Mar`shal");$P=$I.module.gettype("System.Int`Ptr");$S=[string]
- $D=@();$T=@();$DM=[AppDomain]::CurrentDomain."DefineDynami`cAssembly"(1,1)."DefineDynami`cModule"(1);$Z=[uintptr]::size
- 0..5|%{$D+=$DM."Defin`eType"("AveYo_$_",1179913,[ValueType])};$D+=[uintptr];4..6|%{$D+=$D[$_]."MakeByR`efType"()}
- $F='kernel','advapi','advapi','kernel','kernel',($S,$S,$I,$I,$I,$I,$I,$S,$D[7],$D[8]),([uintptr],$S,$I,$I,$D[9]),([uintptr],$S,$I,$I,[byte[]],$I),($P,$I,$I,[IntPtr]."MakeByR`efType"()),($P,$I,$I,$P,$I,$I,$I)
- 0..4|%{$9=$D[0]."DefinePInvok`eMethod"(('CreateProcess','RegOpenKeyEx','RegSetValueEx','InitializeProcThreadAttributeList','UpdateProcThreadAttribute')[$_],$F[$_]+'32',8214,1,$S,$F[$_+5],1,4)}
- $DF=($P,$I,$P),($I,$I,$I,$I,$P,$D[1]),($I,$S,$S,$S,$I,$I,$I,$I,$I,$I,$I,$I,[int16],[int16],$P,$P,$P,$P),($D[3],$P),($P,$P,$I,$I)
- 1..5|%{$k=$_;$n=1;$DF[$_-1]|%{$9=$D[$k]."Defin`eField"('f'+$n++,$_,6)}};0..5|%{$T+=$D[$_]."Creat`eType"()}
- 0..5|%{nv "A$_" ([Activator]::CreateInstance($T[$_])) -fo};function F($1,$2){$T[0]."G`etMethod"($1).invoke(0,$2)}
- $wi=[Security.Principal.WindowsIdentity]::GetCurrent();$TI=$wi.User.Value-eq'S-1-5-18'-or$wi.Name-eq'NT SERVICE\TrustedInstaller';$As=$null
- if(!$TI){foreach($n in 'TrustedInstaller','winlogon'){$As=@(gps -name $n -ea 0)[0];if($As){break}
- $null=sc.exe start $n 2>$null;$As=@(gps -name $n -ea 0)[0];if($As){break}}
- function M($1,$2,$3){$M."G`etMethod"($1,[type[]]$2).invoke(0,$3)}try{$H=@();$Z,(4*$Z+16)|%{$H+=M "AllocHGlobal" $I $_}
- M "WriteIntPtr" ($P,$P) ($H[0],$As.Handle);$A3.f1=10*$Z+32;$A3.f12=1;$A3.f13=0;$A4.f1=$A3
- F 'InitializeProcThreadAttributeList' @($H[1],1,0,[IntPtr](4*$Z+16))
- F 'UpdateProcThreadAttribute' @($H[1],0,0x20000,$H[0],$P::Size,0,0)
- }catch{rp $key $id -force;return}$A4.f2=$H[1]
- $Run=@($null,"powershell -nop -c iex `$env:R; # $id",0,0,0,0x0E080600,0,$null,($A4-as$T[4]),($A5-as$T[5]))
- try{F 'CreateProcess' $Run}catch{rp $key $id -force;return}if(!$A5.f3){rp $key $id -force;return}
- return};$env:R='';rp $key $id -force -ea 0;$priv=[diagnostics.process]."GetM`ember"('SetPrivilege',42)[0]
- 'SeSecurityPrivilege','SeTakeOwnershipPrivilege','SeBackupPrivilege','SeRestorePrivilege'|%{$priv.Invoke($null,@("$_",2))}
- $HKU=[uintptr][uint32]2147483651;$NT='S-1-5-18';$reg=($HKU,$NT,8,2,($HKU-as$D[9]));F 'RegOpenKeyEx' $reg;$LNK=$reg[4]
- function L($1,$2,$3){sp 'HKLM:\SOFTWARE\Classes\AppID\{CDCBCFCA-3CDC-436f-A4E2-0E02075250C2}' 'RunAs' $3
- $b=[Text.Encoding]::Unicode.GetBytes("\Registry\User\$1");F 'RegSetValueEx' @($2,'SymbolicLinkValue',0,6,[byte[]]$b,$b.Length)}
- try{L ($key-split'\\')[1] $LNK '';$psi=New-Object Diagnostics.ProcessStartInfo;$psi.FileName=$cmd;$psi.Arguments=$arg;$psi.UseShellExecute=$false;$psi.CreateNoWindow=$true;$psi.WindowStyle='Hidden';$R=[diagnostics.process]::start($psi);if($R){$R.PriorityClass='High';$R.WaitForExit()}}finally{L '.Default' $LNK 'Interactive User'}
-'@; if ($TI) { try { Invoke-Expression "$V`n$code" }catch { if ($j) { $null = $g::ShowWindow($j, 1) }; throw }; if ($Ex) { [Environment]::Exit(0) }; return }
-        Set-ItemProperty $key $id $($V, $code) -type 7 -force -ea 0; $a = "-nop -c `n$V `$env:R=(gi `$key -ea 0).getvalue(`$id)-join''; iex `$env:R"
-        try { (new-object -com shell.application).shellexecute('powershell', $a, '', 'runas', 0) }catch { Remove-ItemProperty $key $id -force -ea 0; if ($j) { $null = $g::ShowWindow($j, 1) }; throw }; if ($Ex) { [Environment]::Exit(0) }
+    #modified from https://github.com/agadiffe/WindowsMize/blob/e64923ac8055f652c701e99da89a9b680070178e/src/modules/helper_functions/general/public/Invoke-CommandAsSystem.ps1
+    function New-SystemScheduledTask {
+        param(
+            [string]$Name,
+            [string]$command
+        )
+
+        $TaskTriggerParam = @{
+            ClassName = 'MSFT_TaskRegistrationTrigger' # at task creation/modification
+            Namespace = 'Root/Microsoft/Windows/TaskScheduler'
+        }
+        $Trigger = Get-CimClass @TaskTriggerParam -Verbose:$false
+
+        $TaskPath = '\'
+        $TaskAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -C `"$command`""
+        $TaskPrincipal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18'
+        $TaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries
+
+        $ScheduledTaskParam = @{
+            TaskName  = $Name
+            TaskPath  = $TaskPath
+            Action    = $TaskAction
+            Trigger   = $Trigger
+            Principal = $TaskPrincipal
+            Settings  = $TaskSettings
+        }
+
+        Unregister-ScheduledTask -TaskPath $TaskPath -TaskName $Name -Confirm:$false -ErrorAction 'SilentlyContinue'
+        Register-ScheduledTask @ScheduledTaskParam -Verbose:$false
+    }
+
+    function RunAsSystem {
+        param(
+            [string] $Command
+        )
+
+        $TaskData = New-SystemScheduledTask -Name 'RunAsSystem' -command $Command
+
+        while ((Get-ScheduledTask -TaskPath $TaskData.TaskPath -TaskName $TaskData.TaskName).State -eq 'Running') {
+            Start-Sleep -Seconds 0.1
+        }
+
+        Unregister-ScheduledTask -TaskPath $TaskData.TaskPath -TaskName $TaskData.TaskName -Confirm:$false 
     }
 
     $psexe = 'PowerShell.exe'
 
-    taskkill /im trustedinstaller.exe /f >$null
+    taskkill /im trustedinstaller.exe /f *>$null
 
     # trusted installer proc not found (128) or access denied (1)
     if ($LASTEXITCODE -eq 128 -or $LASTEXITCODE -eq 1) {
         Write-Status -msg 'Failed to stop TrustedInstaller.exe... Using fallback method!' -warningOutput
-        RunAsTI $psexe $command
+        RunAsSystem -Command $command
         Start-Sleep 1
         return 
     }
