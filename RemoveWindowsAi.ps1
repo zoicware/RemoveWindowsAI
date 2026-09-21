@@ -2341,6 +2341,11 @@ function Remove-AI-Appx-Packages {
             New-Item $packageRemovalPath -Force | Out-Null
         }
 
+        #get build to exclude ai fabric package on newer builds for now until i can find a way to uninstall it without bugs
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
+        $OSBuild = "$($key.GetValue('CurrentBuild')).$($key.GetValue('UBR'))"
+        $key.Close()
+
         $aipackages = @(
             # 'MicrosoftWindows.Client.Photon'
             'MicrosoftWindows.Client.AIX'
@@ -2354,7 +2359,7 @@ function Remove-AI-Appx-Packages {
             'aimgr'
             'Microsoft.WritingAssistant'
             'Clipchamp.Clipchamp'
-            'Microsoft.AIFabric.CBS*'
+            $(if ([version]$OSBuild -lt [version]26200.9278) { 'Microsoft.AIFabric.CBS*' })
             'MicrosoftWindows.*.Voiess'
             'MicrosoftWindows.*.Speion'
             'MicrosoftWindows.*.Livtop'
