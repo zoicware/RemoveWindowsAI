@@ -1082,9 +1082,7 @@ function Disable-Registry-Keys {
     #Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint' /v 'DisableGenerativeFill' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     
     # disable experimental agentic features
-    # Reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\IsoEnvBroker" /v "Enabled" /t REG_DWORD /d "0" /f
-    # Reg.exe add "HKLM\SYSTEM\ControlSet001\Services\IsoEnvBroker" /v "Enabled" /t REG_DWORD /d "0" /f
-    # leaving commented since its still only in preview builds
+    Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\IsoEnvBroker' /v 'Start' /t REG_DWORD /d @('4', '3')[$revert] /f *>$null
 
     #disable paint ai experiment program
     Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) AI Experiment Program In Paint..."
