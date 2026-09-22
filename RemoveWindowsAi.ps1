@@ -70,7 +70,7 @@ if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
     exit 1
 }
 
-If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
+if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
     #rebuild params from $MyInvocation.BoundParameters
     $paramStr = $MyInvocation.BoundParameters.GetEnumerator() | ForEach-Object {
         $val = $_.Value
@@ -85,7 +85,7 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
     $arglist = "-NoProfile -ExecutionPolicy Bypass -C `"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/zoicware/RemoveWindowsAI/main/RemoveWindowsAi.ps1'))) $($paramStr -join ' ')`""
     Start-Process PowerShell.exe -ArgumentList $arglist -Verb RunAs
-    Exit	
+    exit	
 }
 
 Add-Type -AssemblyName PresentationFramework
@@ -305,19 +305,12 @@ if (!([System.Management.Automation.PSTypeName]'DisableConsoleQuickEdit').Type) 
     Add-Type -TypeDefinition $QuickEditCodeSnippet -Language CSharp
 }
 
-
 function Set-QuickEdit {
     [CmdletBinding()]
     param(
         [switch]$DisableQuickEdit = $false
     )
-
-    if ([DisableConsoleQuickEdit]::SetQuickEdit($DisableQuickEdit)) {
-        Write-Output 'QuickEdit settings has been updated.'
-    }
-    else {
-        Write-Output 'Something went wrong.'
-    }
+    [DisableConsoleQuickEdit]::SetQuickEdit($DisableQuickEdit) >$null
 }
 
 function Check-PendingUpdates {
@@ -340,7 +333,7 @@ function Check-PendingUpdates {
 $pendingUpdates = Check-PendingUpdates
 if ($pendingUpdates) {
     Write-Status -msg 'Windows Update is currently installing or pending for reboot!' -errorOutput
-    Write-Status -msg 'Finish Windows Update first and re-run this script...' -errorOutput
+    Write-Status -msg 'Finish Windows Update first and/or reboot then re-run this script...' -errorOutput
     Write-Host "`nPress Any Key to Exit..."
     [System.Console]::ReadKey() >$null
     exit
@@ -362,7 +355,7 @@ Write-Host '~ ~ ~ Remove Windows AI by @zoicware ~ ~ ~' -ForegroundColor DarkCya
 #since the quick edit setting is stored in the powershell shortcut file when ran from startmenu its not really possible to do it any other way
 #why: quick edit allows for highlighting the console text while a script is running causing it to pause until the user presses some key 
 #this is not clearly stated to the user causing confusion for some 
-Set-QuickEdit -DisableQuickEdit | Out-Null
+Set-QuickEdit -DisableQuickEdit 
 
 if ($EnableLogging) {
     $date = (Get-Date).ToString('MM-dd-yyyy-HH:mm') -replace ':'
