@@ -293,6 +293,7 @@ foreach ($choice in $aipackagesarray) {
         'aimgr'
         'Microsoft.WritingAssistant'
         'Clipchamp.Clipchamp'
+        'Microsoft.Ink.Handwriting*'
         $(if ([version]$OSBuild -lt [version]26200.9278) { 'Microsoft.AIFabric.CBS*' })
         'MicrosoftWindows.*.Voiess'
         'MicrosoftWindows.*.Speion'
