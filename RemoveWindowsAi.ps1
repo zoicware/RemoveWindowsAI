@@ -812,6 +812,46 @@ public class RmHelper {
     return $pids | ForEach-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue }
 }
 
+#Albacore.ViVe.ObfuscationHelpers (ViveTool) in powershell
+#only need feature id -> obfuscated id for registry 
+function SwapBytes32 {
+    param([uint32]$x)
+    $x = (($x -shr 16) -band 0xFFFFFFFF) -bor (($x -shl 16) -band 0xFFFFFFFF)
+    return ((($x -band 0xFF00FF00) -shr 8) -bor (($x -band 0x00FF00FF) -shl 8)) -band 0xFFFFFFFF
+}
+
+function RotateRight32 {
+    param([uint32]$value, [int]$shift)
+    #masks the shift amount to 0-31 for uint operands (shift & 31)
+    $s = (($shift % 32) + 32) % 32
+    if ($s -eq 0) { return $value }
+    return ((($value -shr $s) -bor ($value -shl (32 - $s))) -band 0xFFFFFFFF)
+}
+
+function ObfuscateFeatureId {
+    param([uint32]$FeatureId)
+    $step1 = ($FeatureId -bxor 0x74161A4E) -band 0xFFFFFFFF
+    $step2 = SwapBytes32 $step1
+    $step3 = ($step2 -bxor 0x8FB23D4F) -band 0xFFFFFFFF
+    $step4 = RotateRight32 -value $step3 -shift -1   # -1 & 31 = 31 -> rotate right 31 == rotate left 1
+    $step5 = ($step4 -bxor 0x833EA8FF) -band 0xFFFFFFFF
+    return [uint32]$step5
+}
+
+function Set-FeatureID {
+    param(
+        [switch]$enable,
+        [switch]$disable,
+        [uint32]$FeatureId
+    )
+
+    $regID = ObfuscateFeatureId $FeatureId
+    # 1 = disabled 2 = enabled
+    $value = @('1', '2')[[int]([bool]$enable)]
+    Reg.exe add "HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\$regID" /v 'EnabledState' /t REG_DWORD /d "$value" /f 
+}
+
+
 function Disable-Registry-Keys {
     #maybe add params for particular parts
 
@@ -1126,33 +1166,7 @@ function Disable-Registry-Keys {
     #sfc should revert this and im not sure a clean way to get the velo ids back since they would be removed from the file
     #also most likely this wont change anything for the user
     if (!$revert) {
-        #Albacore.ViVe.ObfuscationHelpers (ViveTool) in powershell
-        #only need feature id -> obfuscated id for registry 
-        function SwapBytes32 {
-            param([uint32]$x)
-            $x = (($x -shr 16) -band 0xFFFFFFFF) -bor (($x -shl 16) -band 0xFFFFFFFF)
-            return ((($x -band 0xFF00FF00) -shr 8) -bor (($x -band 0x00FF00FF) -shl 8)) -band 0xFFFFFFFF
-        }
-
-        function RotateRight32 {
-            param([uint32]$value, [int]$shift)
-            #masks the shift amount to 0-31 for uint operands (shift & 31)
-            $s = (($shift % 32) + 32) % 32
-            if ($s -eq 0) { return $value }
-            return ((($value -shr $s) -bor ($value -shl (32 - $s))) -band 0xFFFFFFFF)
-        }
-
-        function ObfuscateFeatureId {
-            param([uint32]$FeatureId)
-            $step1 = ($FeatureId -bxor 0x74161A4E) -band 0xFFFFFFFF
-            $step2 = SwapBytes32 $step1
-            $step3 = ($step2 -bxor 0x8FB23D4F) -band 0xFFFFFFFF
-            $step4 = RotateRight32 -value $step3 -shift -1   # -1 & 31 = 31 -> rotate right 31 == rotate left 1
-            $step5 = ($step4 -bxor 0x833EA8FF) -band 0xFFFFFFFF
-            return [uint32]$step5
-        }
-
-
+    
         $settingsJSON = (Get-ChildItem -Path "$env:windir\SystemApps" -Recurse).FullName | Where-Object { $_ -like '*wsxpacks\Account\SettingsExtensions.json' }
         if ($settingsJSON) {
         
@@ -1166,10 +1180,7 @@ function Disable-Registry-Keys {
                 $veloIDs = $jsonContent.addedHomeCards | Where-Object { $list -contains $_.cardID } | ForEach-Object { $_.conditions.velocityKey } 
                 if ($veloIDs) {
                     foreach ($veloID in $veloIDs) {
-                        #convert feature id to obfuscated reg id
-                        $regID = ObfuscateFeatureId $veloID.id
-                        #tested using vivetool /disable sets enabledstate to 1
-                        Reg.exe add "HKLM\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\$regID" /v 'EnabledState' /t REG_DWORD /d '1' /f *>$null
+                        Set-FeatureID -disable -FeatureId $veloID.id
                     }
                 }
 
@@ -2332,10 +2343,6 @@ function Remove-AI-Appx-Packages {
             New-Item $packageRemovalPath -Force | Out-Null
         }
 
-        #get build to exclude ai fabric package on newer builds for now until i can find a way to uninstall it without bugs
-        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
-        $OSBuild = "$($key.GetValue('CurrentBuild')).$($key.GetValue('UBR'))"
-        $key.Close()
 
         $aipackages = @(
             # 'MicrosoftWindows.Client.Photon'
@@ -2351,7 +2358,7 @@ function Remove-AI-Appx-Packages {
             'Microsoft.WritingAssistant'
             'Clipchamp.Clipchamp'
             'Microsoft.Ink.Handwriting*'
-            $(if ([version]$OSBuild -lt [version]26200.9278) { 'Microsoft.AIFabric.CBS*' })
+            'Microsoft.AIFabric.CBS*'
             'MicrosoftWindows.*.Voiess'
             'MicrosoftWindows.*.Speion'
             'MicrosoftWindows.*.Livtop'
@@ -2533,6 +2540,10 @@ foreach ($choice in $aipackagesarray) {
             }
         
         }
+
+        #fix windows 10 explorer ribbon bug when removing ai fabric package
+        #velocity id found by @melo936
+        Set-FeatureID -disable -FeatureId 58375086
 
         #tell windows copilot pwa is already installed
         Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoInstalledPWAs' /v 'CopilotPWAPreinstallCompleted' /t REG_DWORD /d '1' /f *>$null
