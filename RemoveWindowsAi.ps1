@@ -2343,6 +2343,9 @@ function Remove-AI-Appx-Packages {
             New-Item $packageRemovalPath -Force | Out-Null
         }
 
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
+        $OSBuild = "$($key.GetValue('CurrentBuild')).$($key.GetValue('UBR'))"
+        $key.Close()
 
         $aipackages = @(
             # 'MicrosoftWindows.Client.Photon'
@@ -2358,7 +2361,8 @@ function Remove-AI-Appx-Packages {
             'Microsoft.WritingAssistant'
             'Clipchamp.Clipchamp'
             'Microsoft.Ink.Handwriting*'
-            'Microsoft.AIFabric.CBS*'
+            #aifabric is a dependency with explorer and doesnt respect the velocity id below
+            $(if ([version]$OSBuild -lt [version]26200.9550) { 'Microsoft.AIFabric.CBS*' })
             'MicrosoftWindows.*.Voiess'
             'MicrosoftWindows.*.Speion'
             'MicrosoftWindows.*.Livtop'
