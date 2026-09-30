@@ -1066,7 +1066,8 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\Capabilities\systemAIModels' /v 'RecordUsageData' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #changes consent store in local machine hive but not current user
     #also properly updates the camsvc db
-    if (Test-Path (get-command SystemSettingsAdminFlows).Source) {
+    $flowCmd = Get-Command SystemSettingsAdminFlows -ErrorAction SilentlyContinue
+    if ($flowCmd -and (Test-Path $flowCmd.Source)) {
         Start-Process SystemSettingsAdminFlows.exe -args "SetCamSystemGlobal systemAIModels $(@('0','1')[$revert])"
     }
     #disable additional keys
