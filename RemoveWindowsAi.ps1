@@ -2395,6 +2395,8 @@ function Remove-AI-Appx-Packages {
             'WindowsWorkload.WinMLShared*'
             'WindowsWorkload.Data.SettingsModel*'
             'MicrosoftCorporationII.WinML.Qualcomm*'
+            'WindowsWorkload.EP.Intel.OpenVINO*'
+            'WindowsWorkload.OnnxRuntime*'
         )
 
         if ($backup) {
