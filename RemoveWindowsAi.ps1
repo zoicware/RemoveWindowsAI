@@ -4278,8 +4278,9 @@ else {
         $checkboxPanel.Orientation = 'Horizontal'
         $checkboxPanel.VerticalAlignment = 'Center'
 
+        $friendlyName = $func.Replace('-', ' ')
         $checkboxLabel = New-Object System.Windows.Controls.TextBlock
-        $checkboxLabel.Text = $func.Replace('-', ' ')
+        $checkboxLabel.Text = $friendlyName
         $checkboxLabel.FontSize = 14
         $checkboxLabel.Foreground = [System.Windows.Media.Brushes]::White
         $checkboxLabel.VerticalAlignment = 'Center'
@@ -4319,6 +4320,10 @@ else {
         [System.Windows.Controls.DockPanel]::SetDock($checkbox, 'Left')
         $checkboxes[$func] = $checkbox
 
+        #add aria labels for screen readers to info buttons
+        [System.Windows.Automation.AutomationProperties]::SetName($infoButton, "More information about $friendlyName")
+        [System.Windows.Automation.AutomationProperties]::SetHelpText($infoButton, 'Opens a dialog describing this option')
+
         $optionContainer.Children.Add($infoButton) | Out-Null
         $optionContainer.Children.Add($checkbox) | Out-Null
         $stackPanel.Children.Add($optionContainer) | Out-Null
@@ -4329,7 +4334,8 @@ else {
         param(
             [System.Windows.Controls.Panel]$ParentControl,
             [bool]$IsChecked = $false,
-            [string]$Name = 'iOSToggle'
+            [string]$Name = 'iOSToggle',
+            [string]$AccessibilityName 
         )
                 
         $styleXaml = @'
@@ -4344,7 +4350,7 @@ else {
                     <Setter Property="Width" Value="40"/>
                     <Setter Property="Height" Value="24"/>
                     <Setter Property="Cursor" Value="Hand"/>
-                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Focusable" Value="True"/>
                     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
                     <Setter Property="Template">
                         <Setter.Value>
@@ -4434,6 +4440,7 @@ else {
         $toggleButton.Name = $Name
         $toggleButton.IsChecked = $IsChecked
         $toggleButton.Style = $resourceDict['CleanToggleStyle']
+        [System.Windows.Automation.AutomationProperties]::SetName($toggleButton, $AccessibilityName)
         $ParentControl.Children.Add($toggleButton) | Out-Null
                 
         return $toggleButton
@@ -4474,8 +4481,9 @@ else {
         $optionContainer.Margin = '0,5,0,5'
         $optionContainer.LastChildFill = $false
     
+        $friendlyName = $func.Replace('-', ' ')
         $checkbox = New-Object System.Windows.Controls.CheckBox
-        $checkbox.Content = $func.Replace('-', ' ')
+        $checkbox.Content = $friendlyName
         $checkbox.FontSize = 14
         $checkbox.Foreground = [System.Windows.Media.Brushes]::White
         $checkbox.Margin = '0,0,10,0'
@@ -4524,6 +4532,10 @@ else {
                 $description = $functionDescriptions[$funcName]
                 [System.Windows.MessageBox]::Show($description, $funcName, [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
             })
+
+        #add aria labels for screen readers to info buttons
+        [System.Windows.Automation.AutomationProperties]::SetName($infoButton, "More information about $friendlyName")
+        [System.Windows.Automation.AutomationProperties]::SetHelpText($infoButton, 'Opens a dialog describing this option')
     
         $optionContainer.Children.Add($checkbox) | Out-Null
         $optionContainer.Children.Add($infoButton) | Out-Null
@@ -4560,7 +4572,7 @@ else {
     [System.Windows.Controls.DockPanel]::SetDock($toggleLabel1, 'Left')
     $togglePanel1.Children.Add($toggleLabel1) | Out-Null
         
-    $revertModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel1 -IsChecked $revert
+    $revertModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel1 -IsChecked $revert -AccessibilityName 'Revert Mode Toggle'
     [System.Windows.Controls.DockPanel]::SetDock($revertModeToggle, 'Left')
 
     $revertInfoButton = New-Object System.Windows.Controls.Button
@@ -4577,6 +4589,9 @@ else {
     $revertInfoButton.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0)
     $revertInfoButton.Cursor = 'Hand'
     [System.Windows.Controls.DockPanel]::SetDock($revertInfoButton, 'Right')
+
+    [System.Windows.Automation.AutomationProperties]::SetName($revertInfoButton, 'More information about revert mode')
+    [System.Windows.Automation.AutomationProperties]::SetHelpText($revertInfoButton, 'Opens a dialog describing this option')
 
     $revertInfoTemplate = @'
 <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="Button">
@@ -4611,7 +4626,7 @@ else {
     [System.Windows.Controls.DockPanel]::SetDock($toggleLabel2, 'Left')
     $togglePanel2.Children.Add($toggleLabel2) | Out-Null
         
-    $backupModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel2 -IsChecked $backup
+    $backupModeToggle = Add-iOSToggleToUI -ParentControl $togglePanel2 -IsChecked $backup -AccessibilityName 'Backup Mode Toggle'
     [System.Windows.Controls.DockPanel]::SetDock($backupModeToggle, 'Left')
 
     $backupInfoButton = New-Object System.Windows.Controls.Button
@@ -4628,6 +4643,9 @@ else {
     $backupInfoButton.Margin = New-Object System.Windows.Thickness(10, 0, 0, 0)
     $backupInfoButton.Cursor = 'Hand'
     [System.Windows.Controls.DockPanel]::SetDock($backupInfoButton, 'Right')
+
+    [System.Windows.Automation.AutomationProperties]::SetName($backupInfoButton, 'More information about backup mode')
+    [System.Windows.Automation.AutomationProperties]::SetHelpText($backupInfoButton, 'Opens a dialog describing this option')
 
     $backupInfoTemplate = @'
 <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="Button">
@@ -4691,6 +4709,9 @@ else {
     $shortcutInfoButton.Cursor = 'Hand'
     [System.Windows.Controls.DockPanel]::SetDock($shortcutInfoButton, 'Right')
     $shortcutInfoButton.Template = [System.Windows.Markup.XamlReader]::Parse($revertInfoTemplate)
+
+    [System.Windows.Automation.AutomationProperties]::SetName($shortcutInfoButton, 'More information about shortcut options')
+    [System.Windows.Automation.AutomationProperties]::SetHelpText($shortcutInfoButton, 'Opens a dialog describing this option')
     $shortcutInfoButton.Add_Click({
             $description = 'Creates a shortcut that runs the latest version of this script from GitHub.'
             [System.Windows.MessageBox]::Show($description, 'Shortcut Options', [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
@@ -4793,6 +4814,9 @@ else {
     $discordButton.Margin = '0,0,10,0'
     $discordButton.Cursor = 'Hand'
 
+    [System.Windows.Automation.AutomationProperties]::SetName($discordButton, 'Zoicware Discord')
+    [System.Windows.Automation.AutomationProperties]::SetHelpText($discordButton, 'Opens a link to join the discord')
+
     $discordIcon = New-ImageFromBase64 -base64String $Global:discordIconBase64
     $discordButton.Content = $discordIcon
 
@@ -4818,6 +4842,9 @@ else {
     $githubButton.BorderBrush = [System.Windows.Media.Brushes]::Transparent
     $githubButton.BorderThickness = 0
     $githubButton.Cursor = 'Hand'
+
+    [System.Windows.Automation.AutomationProperties]::SetName($githubButton, 'RemoveWindowsAI GitHub')
+    [System.Windows.Automation.AutomationProperties]::SetHelpText($githubButton, 'Opens link to the RemoveWindowsAI GitHub Repository')
 
     $githubIcon = New-ImageFromBase64 -base64String $Global:githubIconBase64
     $githubButton.Content = $githubIcon
