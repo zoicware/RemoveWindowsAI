@@ -1,19 +1,22 @@
 ## Remove Windows AI Documentation
 ---
+>[!NOTE]
+> Many other scripts claim to disable/remove ai however these scripts either contain ai generated code which commonly hallucinates fake registry keys, values, and paths OR do not cover 100% of the ai features in windows
+>
 ### OS Support
 
 - The script is created for any version of Windows 10 and Windows 11, Latest Stable Builds
 - For best results use a Pro, Enterprise, Server, or Education version. I can not guarentee 100% removal on Home versions
   - If you are on a Home version and want to convert to Pro I recommend using massgrave: https://github.com/massgravel/Microsoft-Activation-Scripts
-> [!NOTE]
-> The script will work on Insider builds however, any new AI features added to Insider builds will not be added to the script till they are released in the latest stable build
->
 
 ---
 
 ### Code Review
 
 - Given that Microsoft REALLY do not want users removing all AI features the script uses some advanced techniques in PowerShell
+
+>[!IMPORTANT]
+> This script is NOT vibe coded and was written entirely by me over the course of multiple years starting in 2024
 
 #### Run-Trusted Function
 
