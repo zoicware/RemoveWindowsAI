@@ -2344,9 +2344,9 @@ function Remove-AI-Appx-Packages {
             New-Item $packageRemovalPath -Force | Out-Null
         }
 
-        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
-        $OSBuild = "$($key.GetValue('CurrentBuild')).$($key.GetValue('UBR'))"
-        $key.Close()
+        #$key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
+        #$OSBuild = "$($key.GetValue('CurrentBuild')).$($key.GetValue('UBR'))"
+        #$key.Close()
 
         $aipackages = @(
             # 'MicrosoftWindows.Client.Photon'
@@ -2363,7 +2363,8 @@ function Remove-AI-Appx-Packages {
             'Clipchamp.Clipchamp'
             'Microsoft.Ink.Handwriting*'
             #aifabric is a dependency with explorer and doesnt respect the velocity id below
-            $(if ([version]$OSBuild -lt [version]26200.9550) { 'Microsoft.AIFabric.CBS*' })
+            #$(if ([version]$OSBuild -lt [version]26200.9550) { 'Microsoft.AIFabric.CBS*' })
+            'Microsoft.AIFabric.CBS*'
             'MicrosoftWindows.*.Voiess'
             'MicrosoftWindows.*.Speion'
             'MicrosoftWindows.*.Livtop'
@@ -2551,6 +2552,8 @@ foreach ($choice in $aipackagesarray) {
         #fix windows 10 explorer ribbon bug when removing ai fabric package
         #velocity id found by @melo936
         Set-FeatureID -disable -FeatureId 58375086
+        #fix for 9550 and newer found by me
+        Set-FeatureID -disable -FeatureId 61161244
 
         #tell windows copilot pwa is already installed
         Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoInstalledPWAs' /v 'CopilotPWAPreinstallCompleted' /t REG_DWORD /d '1' /f *>$null
