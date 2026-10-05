@@ -1954,10 +1954,40 @@ public class TaskbarUnpinByAumid {
 
 
 function Install-NOAIPackage {
+
+    function Remove-CabPackage {
+        param(
+            $package
+        )
+        try {
+            Remove-WindowsPackage -Online -PackageName $package.PackageName -NoRestart -ErrorAction Stop
+        }
+        catch {
+            dism.exe /Online /remove-package /PackageName:$($package.PackageName) /NoRestart
+        }
+        #remove reg install location 
+        $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+        Get-ChildItem $regPath | ForEach-Object {
+            $value = try { Get-ItemProperty "registry::$($_.Name)" -ErrorAction Stop } catch { $null }
+            if ($value -and $value.PSPath -like '*zoicware*') {
+                Remove-Item -Path $value.PSPath -Recurse -Force
+            }
+        }
+    }
     
     if (!$revert) {
+        #check for old version first and remove if its installed
+        $replace = $false
         $package = Get-WindowsPackage -Online | Where-Object { $_.PackageName -like '*zoicware*' }
-        if (!$package) {
+        if ($package) {
+            if ($package.PackageName -like '*1.0.0.0') {
+                Write-Status -msg 'Old RemoveWindowsAI Package Found...Replacing!'
+                Remove-CabPackage -package $package
+                $replace = $true
+            }
+        }
+       
+        if (!$package -or $replace) {
             #check cpu arch
             $arm = ((Get-CimInstance -Class Win32_ComputerSystem).SystemType -match 'ARM64') -or ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64')
             $arch = if ($arm) { 'arm64' } else { 'amd64' }
@@ -1973,11 +2003,11 @@ function Install-NOAIPackage {
 
                 Write-Status -msg 'Installing RemoveWindowsAI Package...'
                 try {
-                    Add-WindowsPackage -Online -PackagePath "$PSScriptRoot\RemoveWindowsAIPackage\$arch\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck -ErrorAction Stop >$null
+                    Add-WindowsPackage -Online -PackagePath "$PSScriptRoot\RemoveWindowsAIPackage\$arch\ZoicwareRemoveWindowsAI-$($arch)1.0.0.1.cab" -NoRestart -IgnoreCheck -ErrorAction Stop >$null
                 }
                 catch {
                     #user is using powershell 7 use dism command as fallback
-                    dism.exe /Online /Add-Package /PackagePath:"$PSScriptRoot\RemoveWindowsAIPackage\$arch\ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" /NoRestart /IgnoreCheck >$null
+                    dism.exe /Online /Add-Package /PackagePath:"$PSScriptRoot\RemoveWindowsAIPackage\$arch\ZoicwareRemoveWindowsAI-$($arch)1.0.0.1.cab" /NoRestart /IgnoreCheck >$null
                 }
            
             }
@@ -1985,20 +2015,20 @@ function Install-NOAIPackage {
                 Write-Status -msg 'Downloading RemoveWindowsAI Package From Github...'
                 $ProgressPreference = 'SilentlyContinue'
                 try {
-                    Invoke-WebRequest -Uri "https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -OutFile "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -UseBasicParsing -ErrorAction Stop
+                    Invoke-WebRequest -Uri "https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.1.cab" -OutFile "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.1.cab" -UseBasicParsing -ErrorAction Stop
                 }
                 catch {
-                    Write-Status -msg "Unable to Download Package at: https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -errorOutput
+                    Write-Status -msg "Unable to Download Package at: https://github.com/zoicware/RemoveWindowsAI/raw/refs/heads/main/RemoveWindowsAIPackage/$arch/ZoicwareRemoveWindowsAI-$($arch)1.0.0.1.cab" -errorOutput
                     return
                 }
 
                 Write-Status -msg 'Installing RemoveWindowsAI Package...'
                 try {
-                    Unblock-File "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -ErrorAction SilentlyContinue
-                    Add-WindowsPackage -Online -PackagePath "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" -NoRestart -IgnoreCheck -ErrorAction Stop >$null
+                    Unblock-File "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.1.cab" -ErrorAction SilentlyContinue
+                    Add-WindowsPackage -Online -PackagePath "$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.1.cab" -NoRestart -IgnoreCheck -ErrorAction Stop >$null
                 }
                 catch {
-                    dism.exe /Online /Add-Package /PackagePath:"$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.0.cab" /NoRestart /IgnoreCheck >$null
+                    dism.exe /Online /Add-Package /PackagePath:"$($tempDir)ZoicwareRemoveWindowsAI-$($arch)1.0.0.1.cab" /NoRestart /IgnoreCheck >$null
                 }
             }
         }
@@ -2006,46 +2036,20 @@ function Install-NOAIPackage {
             Write-Status -msg 'Update package already installed...'
         }
         
-        Write-Status -msg 'Checking update package install status...'
-        $package = Get-WindowsPackage -Online | Where-Object { $_.PackageName -like '*zoicware*' }
-        if ($package.PackageState -eq 'InstallPending') {
-            Write-Status -msg 'Package installed incorrectly... Uninstalling!' -errorOutput
-            try {
-                Remove-WindowsPackage -Online -PackageName $package.PackageName -NoRestart -ErrorAction Stop
-            }
-            catch {
-                dism.exe /Online /remove-package /PackageName:$($package.PackageName) /NoRestart
-            }
-            #remove reg install location 
-            $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
-            Get-ChildItem $regPath | ForEach-Object {
-                $value = try { Get-ItemProperty "registry::$($_.Name)" -ErrorAction Stop } catch { $null }
-                if ($value -and $value.PSPath -like '*zoicware*') {
-                    Remove-Item -Path $value.PSPath -Recurse -Force
-                }
-            }
-        }
+        #need to improve this check
+        #  Write-Status -msg 'Checking update package install status...'
+        #  $package = Get-WindowsPackage -Online | Where-Object { $_.PackageName -like '*zoicware*' }
+        #  if ($package.PackageState -eq 'InstallPending') {
+        #      Write-Status -msg 'Package installed incorrectly... Uninstalling!' -errorOutput
+        #      Remove-CabPackage -package $package
+        #  }
     }
     else {
         
         $package = Get-WindowsPackage -Online | Where-Object { $_.PackageName -like '*zoicware*' }
         if ($package) {
             Write-Status 'Removing Custom Windows Update Package...' 
-            try {
-                Remove-WindowsPackage -Online -PackageName $package.PackageName -NoRestart -ErrorAction Stop
-            }
-            catch {
-                dism.exe /Online /remove-package /PackageName:$($package.PackageName) /NoRestart
-            }
-            #remove reg install location 
-            $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
-            Get-ChildItem $regPath | ForEach-Object {
-                $value = try { Get-ItemProperty "registry::$($_.Name)" -ErrorAction Stop } catch { $null }
-                if ($value -and $value.PSPath -like '*zoicware*') {
-                    Remove-Item -Path $value.PSPath -Recurse -Force
-                }
-            }
-            
+            Remove-CabPackage -package $package 
         }
         else {
             Write-Status 'Unable to Find Update Package...' -errorOutput 
