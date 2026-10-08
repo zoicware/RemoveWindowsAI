@@ -1124,6 +1124,8 @@ function Disable-Registry-Keys {
     
     # disable experimental agentic features
     Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\IsoEnvBroker' /v 'Start' /t REG_DWORD /d @('4', '3')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\IsolationSession' /v 'Start' /t REG_DWORD /d @('4', '3')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\IsoSessionCore' /v 'Start' /t REG_DWORD /d @('4', '3')[$revert] /f *>$null
 
     #disable paint ai experiment program
     Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) AI Experiment Program In Paint..."
