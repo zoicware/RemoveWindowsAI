@@ -940,6 +940,8 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKCU\Software\Microsoft\Windows\Shell\ClickToDo' /v 'DisableClickToDo' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\M365Copilot' /v 'AutoStartDelayEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\M365Copilot' /v 'IsCompanionWindowAvailable' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKU\S-1-5-18\Software\Microsoft\Copilot' /v 'InstallerPinned' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKU\.DEFAULT\Software\Microsoft\Copilot' /v 'InstallerPinned' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #remove copilot from search
     Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) Copilot In Windows Search..."
     Reg.exe add 'HKCU\SOFTWARE\Policies\Microsoft\Windows\Explorer' /v 'DisableSearchBoxSuggestions' /t REG_DWORD /d @('1', '0')[$revert] /f *>$null
@@ -2038,13 +2040,24 @@ function Install-NOAIPackage {
             Write-Status -msg 'Update package already installed...'
         }
         
-        #need to improve this check
-        #  Write-Status -msg 'Checking update package install status...'
-        #  $package = Get-WindowsPackage -Online | Where-Object { $_.PackageName -like '*zoicware*' }
-        #  if ($package.PackageState -eq 'InstallPending') {
-        #      Write-Status -msg 'Package installed incorrectly... Uninstalling!' -errorOutput
-        #      Remove-CabPackage -package $package
-        #  }
+        Write-Status -msg 'Checking update package install status...'
+
+        $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+        Get-ChildItem $regPath | ForEach-Object {
+            $value = try { Get-ItemProperty "registry::$($_.Name)" -ErrorAction Stop } catch { $null }
+            if ($value -and $value.PSPath -like '*zoicware*') {
+                $currentState = Get-ItemPropertyValue $value.PSPath -Name CurrentState -ErrorAction SilentlyContinue
+                $name = $value.PSChildName
+            }
+        }
+        #if the package state is not installed (112) or install pending (96) then assume that it got installed incorrectly
+        if ($currentState -ne 112 -or $currentState -ne 96) {
+            Write-Status -msg 'Package installed incorrectly... Uninstalling!' -errorOutput
+            #use the package name from registry to prevent an uneccesary get-windowspackage call
+            $package = [PSCustomObject]@{ PackageName = $name }
+            Remove-CabPackage -package $package
+        }
+
     }
     else {
         
