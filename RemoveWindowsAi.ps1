@@ -2051,11 +2051,14 @@ function Install-NOAIPackage {
             }
         }
         #if the package state is not installed (112) or install pending (96) then assume that it got installed incorrectly
-        if ($currentState -ne 112 -or $currentState -ne 96) {
+        if ($currentState -ne 112 -and $currentState -ne 96) {
             Write-Status -msg 'Package installed incorrectly... Uninstalling!' -errorOutput
             #use the package name from registry to prevent an uneccesary get-windowspackage call
             $package = [PSCustomObject]@{ PackageName = $name }
             Remove-CabPackage -package $package
+        }
+        else {
+            Write-Status -msg 'Package installed correctly!'
         }
 
     }
