@@ -2575,7 +2575,7 @@ foreach ($choice in $aipackagesarray) {
         #velocity id found by @melo936
         Set-FeatureID -disable -FeatureId 58375086
         #fix for 9550 and newer found by me
-        Set-FeatureID -disable -FeatureId 61161244 
+        #Set-FeatureID -disable -FeatureId 61161244 
         #another id found by @melo936 for 9550/26h2
         Set-FeatureID -disable -FeatureId 63366798
 
