@@ -121,7 +121,7 @@ if ($avproducts.count -gt 1) {
         }
     } 
 }
-elseif ($avproducts.displayName -ne 'Windows Defender') {
+elseif ($avproducts -and $avproducts.displayName -ne 'Windows Defender') {
     $thirdPartyAv = [PSCustomObject]@{
         Name  = $avproducts.displayName
         State = Convert-ProductState $avproducts.productState
