@@ -206,7 +206,7 @@ If you would like to support my work consider donating :)
  </a>
 </p>
 
-<img src="https://img.shields.io/badge/%23_12-Top%20100%20PowerShell%20Repos-gold?style=for-the-badge&logo=powershell&logoColor=white" alt="Top 100 PowerShell Repos - #11" />
+<img src="https://img.shields.io/badge/%23_11-Top%20100%20PowerShell%20Repos-gold?style=for-the-badge&logo=powershell&logoColor=white" alt="Top 100 PowerShell Repos - #11" />
 
 
 
