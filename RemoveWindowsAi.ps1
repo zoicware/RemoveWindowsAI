@@ -185,10 +185,13 @@ function Run-Trusted([String]$command, $psversion) {
 
     $psexe = 'PowerShell.exe'
 
-    taskkill /im trustedinstaller.exe /f *>$null
+    $checkSvc = Get-Service 'TrustedInstaller' -ErrorAction SilentlyContinue
+    if ($checkSvc -and $checkSvc.Status -eq 'Running') {
+        taskkill /im trustedinstaller.exe /f *>$null
+    }
 
     # trusted installer proc not found (128) or access denied (1)
-    if ($LASTEXITCODE -eq 128 -or $LASTEXITCODE -eq 1) {
+    if ($LASTEXITCODE -eq 128 -or $LASTEXITCODE -eq 1 -or !$checkSvc) {
         Write-Status -msg 'Failed to stop TrustedInstaller.exe... Using fallback method!' -warningOutput
         RunAsSystem -Command $command
         Start-Sleep 1
@@ -217,7 +220,7 @@ function Run-Trusted([String]$command, $psversion) {
         Stop-Service -Name TrustedInstaller -Force -ErrorAction Stop -WarningAction Stop
     }
     catch {
-        taskkill /im trustedinstaller.exe /f >$null
+        taskkill /im trustedinstaller.exe /f *>$null
     }
     
 }
