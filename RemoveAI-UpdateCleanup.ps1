@@ -386,6 +386,7 @@ foreach ($choice in $aipackagesarray) {
 
     Set-FeatureID -disable -FeatureId 58375086
     Set-FeatureID -disable -FeatureId 63366798
+    Set-FeatureID -disable -FeatureId 58375066
 
 
     #add registry keys even tho im pretty sure they dont get changed 

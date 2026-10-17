@@ -2581,6 +2581,8 @@ foreach ($choice in $aipackagesarray) {
         #Set-FeatureID -disable -FeatureId 61161244 
         #another id found by @melo936 for 9550/26h2
         Set-FeatureID -disable -FeatureId 63366798
+        #another one for 9771 or newer found by @melo936
+        Set-FeatureID -disable -FeatureId 58375066
 
         #tell windows copilot pwa is already installed
         Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoInstalledPWAs' /v 'CopilotPWAPreinstallCompleted' /t REG_DWORD /d '1' /f *>$null
