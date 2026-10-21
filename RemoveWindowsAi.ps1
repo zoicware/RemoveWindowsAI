@@ -1911,6 +1911,24 @@ public class TaskbarUnpinByAumid {
         }
      
     }
+
+    #block app actions through com activation hijack
+    #greys out app actions listing in modern context menu and prevents appactions.exe from spawning 
+    $cbsCurrent = (Get-AppxPackage -allusers 'MicrosoftWindows.Client.CBS').PackageFullName
+    $fullPath = "HKLM:\SOFTWARE\Classes\PackagedCom\Package\$cbsCurrent\Server"
+    if (Test-Path $fullPath) {
+        #need to find which server # is the correct one
+        $server = (Get-ChildItem $fullPath | Where-Object { $_.GetValue('DisplayName') -eq 'ActionFX COM Server' }).name
+        if ($server) {
+            if ($revert) {
+                $command = "Reg.exe add $server /v Executable /t REG_SZ /d `"AppActions.exe`" /f"
+            }
+            else {
+                $command = "Reg.exe add $server /v Executable /t REG_SZ /d `"$env:systemroot\System32\systray.exe`" /f"
+            }
+            Run-Trusted -command $command
+        }
+    }
     
     #disable ai features when npu is detected in snipping tool
     $settingsDat = "$env:LOCALAPPDATA\Packages\Microsoft.ScreenSketch_8wekyb3d8bbwe\Settings\settings.dat"
