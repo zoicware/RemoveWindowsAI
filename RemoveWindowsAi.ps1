@@ -1131,7 +1131,9 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\IsoEnvBroker' /v 'Start' /t REG_DWORD /d @('4', '3')[$revert] /f *>$null
     Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\IsolationSession' /v 'Start' /t REG_DWORD /d @('4', '3')[$revert] /f *>$null
     Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\IsoSessionCore' /v 'Start' /t REG_DWORD /d @('4', '3')[$revert] /f *>$null
-
+    #disable Hybrid Compute Framework (HCF)
+    #no revert for now cant assume that default for
+    Reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\WorkloadManager\HCF\Status' /v 'IsHcfPresent' /t REG_DWORD /d '0' /f *>$null
     #disable paint ai experiment program
     Write-Status -msg "$(@('Disabling', 'Enabling')[$revert]) AI Experiment Program In Paint..."
     Reg.exe add 'HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Paint\View' /v 'IsSignedUpForTargetingService' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
