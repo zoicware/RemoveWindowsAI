@@ -968,6 +968,8 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'M365LinksAutoOpenCopilotEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'CopilotAddressBarSuggestionsEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'CopilotCoworkToolActionsEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'RemixAvailability' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'CopilotOnSensitiveContentEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #disable edge copilot mode 
     # "enabled_labs_experiments":["edge-copilot-mode@2"]
     # view flags at edge://flags
