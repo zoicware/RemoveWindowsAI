@@ -206,6 +206,8 @@ If you would like to support my work consider donating :)
  </a>
 </p>
 
+<a href="https://trendshift.io/repositories/17852?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-17852" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/17852/yearly?language=PowerShell" alt="zoicware%2FRemoveWindowsAI | Trendshift" width="250" height="55"/></a>
+
 <img src="https://img.shields.io/badge/%23_11-Top%20100%20PowerShell%20Repos-gold?style=for-the-badge&logo=powershell&logoColor=white" alt="Top 100 PowerShell Repos - #11" />
 
 
