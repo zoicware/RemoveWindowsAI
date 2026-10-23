@@ -970,6 +970,7 @@ function Disable-Registry-Keys {
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'CopilotCoworkToolActionsEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'RemixAvailability' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'CopilotOnSensitiveContentEnabled' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
+    Reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Edge' /v 'BlueprintGWAAvailability' /t REG_DWORD /d @('0', '1')[$revert] /f *>$null
     #disable edge copilot mode 
     # "enabled_labs_experiments":["edge-copilot-mode@2"]
     # view flags at edge://flags
@@ -995,7 +996,10 @@ function Disable-Registry-Keys {
                 $flags = @(
                     'edge-copilot-mode@2', 
                     'edge-ntp-composer@2', #disables the copilot search in new tab page 
-                    'edge-compose@2' #disables the ai writing help 
+                    'edge-compose@2', #disables the ai writing help 
+                    'edge-ai-search@5',
+                    'edge-ai-explain-devtools@2',
+                    'edge-devtools-css-copilot@2'
                 )
                 if ($revert) {
                     $jsonContent.browser.enabled_labs_experiments = $jsonContent.browser.enabled_labs_experiments | Where-Object { $_ -notin $flags }
