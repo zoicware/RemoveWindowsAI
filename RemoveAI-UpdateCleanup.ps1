@@ -1,154 +1,68 @@
 function Run-Trusted([String]$command, $psversion) {
 
-    #run as ti by aveyo refactored for powershell use only
-    #no powershell window flash
-    #removed reg sym link as its not needed
-    #fixed some issues with reflection methods
-    function Invoke-AsTrustedInstaller {
+    #modified from https://github.com/agadiffe/WindowsMize/blob/e64923ac8055f652c701e99da89a9b680070178e/src/modules/helper_functions/general/public/Invoke-CommandAsSystem.ps1
+    function New-SystemScheduledTask {
         param(
-            [Parameter(Mandatory)]
-            [string]$Code
+            [string]$Name,
+            [string]$command
         )
 
-        $userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-        $regKey = "Registry::HKU\$userSid\Volatile Environment"
-        $userCodeValue = 'TI_Code'
-        $payloadValue = 'TI_Payload'
-        $bootstrapValue = 'TI_Bootstrap'
+        $TaskTriggerParam = @{
+            ClassName = 'MSFT_TaskRegistrationTrigger' # at task creation/modification
+            Namespace = 'Root/Microsoft/Windows/TaskScheduler'
+        }
+        $Trigger = Get-CimClass @TaskTriggerParam -Verbose:$false
 
-        Set-ItemProperty $regKey $userCodeValue $Code -Type 1 # REG_SZ
+        $TaskPath = '\'
+        $TaskAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -C `"$command`""
+        $TaskPrincipal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18'
+        $TaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries
 
-        #Bootstrap to run payload
-        $bootstrap = @"
-`$env:R = (Get-Item 'Registry::HKU\$userSid\Volatile Environment' -EA 0).GetValue('$($payloadValue)') -join `"``n`";
-iex `$env:R
-"@
-        Set-ItemProperty $regKey $bootstrapValue $bootstrap -Type 1 # REG_SZ
+        $ScheduledTaskParam = @{
+            TaskName  = $Name
+            TaskPath  = $TaskPath
+            Action    = $TaskAction
+            Trigger   = $Trigger
+            Principal = $TaskPrincipal
+            Settings  = $TaskSettings
+        }
 
-        #Reflection / P-Invoke payload 
-        $payload = @'
-$I=[int32];$M=$I.module.gettype("System.Runtime.InteropServices.Marshal")
-$P=[IntPtr];$S=[string];$Z=[uintptr]::size
-$D=@();$T=@()
-$DM=[AppDomain]::CurrentDomain.DefineDynamicAssembly(1,1).DefineDynamicModule(1)
-0..5 | ForEach-Object { $D += $DM.DefineType("AveYo_$_", 265, [ValueType]) }
-$D += [uintptr]
-4..6 | ForEach-Object { $D += $D[$_].MakeByRefType() }
-$F = 'kernel','advapi','advapi',
-     ([string],[string],[int32],[int32],[int32],[int32],[int32],[string],$D[7],$D[8]),
-     ([uintptr],[string],[int32],[int32],$D[9]),
-     ([uintptr],[string],[int32],[int32],[byte[]],[int32])
-0..2 | ForEach-Object {
-    $D[0].DefinePInvokeMethod(
-        ('CreateProcess','RegOpenKeyEx','RegSetValueEx')[$_],
-        $F[$_]+'32', 8214, 1, $S, $F[$_+3], 1, 4
-    )
-}
-$DF = ($P,$I,$P),
-      ($I,$I,$I,$I,$P,$D[1]),
-      ($I,$S,$S,$S,$I,$I,$I,$I,$I,$I,$I,$I,[int16],[int16],$P,$P,$P,$P),
-      ($D[3],$P),
-      ($P,$P,$I,$I)
-1..5 | ForEach-Object {
-    $k = $_; $n = 1
-    $DF[$_-1] | ForEach-Object { $D[$k].DefineField('f'+$n++, $_, 6) }
-}
-0..5 | ForEach-Object { $T += $D[$_].CreateType() }
-0..5 | ForEach-Object { New-Variable "A$_" ([Activator]::CreateInstance($T[$_])) -Force }
-function Invoke-NativeMethod($Name, $MethodArgs) {
-    $T[0].GetMethod($Name).Invoke($null, [object[]]$MethodArgs)
-}
-function Invoke-MarshalMethod($Name, [type[]]$Types, $MethodArgs) {
-    $M.GetMethod($Name, [type[]]$Types).Invoke($null, [object[]]$MethodArgs)
-}
-$privMethod = [Diagnostics.Process].GetMember('SetPrivilege', 42)[0]
-'SeSecurityPrivilege','SeTakeOwnershipPrivilege','SeBackupPrivilege','SeRestorePrivilege' |
-    ForEach-Object { $privMethod.Invoke($null, @("$_", 2)) }
-$targetProcess = $null
-'TrustedInstaller','lsass','winlogon' | ForEach-Object {
-    if (!$targetProcess) {
-        sc.exe start $_ 2>$null
-        Start-Sleep -Milliseconds 500
-        $targetProcess = @(Get-Process -Name $_ -EA 0)[0]
-    }
-}
-$handles = @()
-$Z, (4*$Z+16) | ForEach-Object {
-    $handles += Invoke-MarshalMethod 'AllocHGlobal' @([int32]) @([int32]$_)
-}
-Invoke-MarshalMethod 'WriteIntPtr' @([IntPtr],[IntPtr]) @($handles[0], $targetProcess.Handle)
-$A1.f1 = 131072; $A1.f2 = $Z; $A1.f3 = $handles[0]
-$A2.f1 = 1; $A2.f2 = 1; $A2.f3 = 1; $A2.f4 = 1; $A2.f6 = $A1
-$A3.f1 = 10*$Z+32
-$A4.f1 = $A3; $A4.f2 = $handles[1]
-Invoke-MarshalMethod 'StructureToPtr' @([object],[IntPtr],[bool]) @(($A2 -as $D[2]), $A4.f2, $false)
-$HKU     = [uintptr][uint32]2147483651
-$NT      = 'S-1-5-18'
-$regArgs = @($HKU, $NT, 8, 2, ($HKU -as $D[9]))
-Invoke-NativeMethod 'RegOpenKeyEx' $regArgs
-$hkuLink = $regArgs[4]
-# Retrieve the SID that was appended to the payload by the outer function
-$currentSid = ($env:R -split '###SID###')[2].trim()
-# Read TI_Code and base64-encode it to pass safely into CreateProcess command line
-$rawCode = (Get-Item 'HKCU:\Volatile Environment' -EA 0).GetValue('TI_Code')
-$encodedCode = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($rawCode))
-$createResult = Invoke-NativeMethod 'CreateProcess' @(
-    $null,
-    "powershell -win hidden -nop -ep bypass -enc $encodedCode",
-    0, 0, 0, 0x0E080600, 0, $null,
-    ($A4 -as $T[4]),
-    ($A5 -as $T[5])
-)
-$childInfo = $A5 -as $T[5]
-if ($childInfo.f1 -ne [IntPtr]::Zero) {
-    $childProc = [Diagnostics.Process]::GetProcessById(
-        [Runtime.InteropServices.Marshal]::ReadInt32($childInfo.f2)
-    )
-    if ($childProc) { $childProc.WaitForExit() }
-}
-$env:R = ''
-'@
-
-        #add user sid in comment to get later
-        Set-ItemProperty $regKey $payloadValue "$payload`n###SID###$userSid" -Type 1 # REG_SZ
-    
-        #run payload
-        $wshell = New-Object -ComObject WScript.Shell
-        $wshell.Run(
-            "powershell.exe -win hidden -nop -ep bypass -c iex((gi 'Registry::HKU\$userSid\Volatile Environment').GetValue('TI_Bootstrap'))",
-            0,
-            $true
-        ) | Out-Null
-     
-        #Cleanup 
-        Remove-ItemProperty $regKey $userCodeValue  -Force -EA 0
-        Remove-ItemProperty $regKey $payloadValue   -Force -EA 0
-        Remove-ItemProperty $regKey $bootstrapValue -Force -EA 0
-        $env:B = ''
+        Unregister-ScheduledTask -TaskPath $TaskPath -TaskName $Name -Confirm:$false -ErrorAction 'SilentlyContinue'
+        Register-ScheduledTask @ScheduledTaskParam -Verbose:$false
     }
 
+    function RunAsSystem {
+        param(
+            [string] $Command
+        )
+
+        $TaskData = New-SystemScheduledTask -Name 'RunAsSystem' -command $Command
+
+        while ((Get-ScheduledTask -TaskPath $TaskData.TaskPath -TaskName $TaskData.TaskName).State -eq 'Running') {
+            Start-Sleep -Seconds 0.1
+        }
+
+        Unregister-ScheduledTask -TaskPath $TaskData.TaskPath -TaskName $TaskData.TaskName -Confirm:$false 
+    }
 
     $psexe = 'PowerShell.exe'
+
+    $checkSvc = Get-Service 'TrustedInstaller' -ErrorAction SilentlyContinue
+    if ($checkSvc -and $checkSvc.Status -eq 'Running') {
+        taskkill /im trustedinstaller.exe /f *>$null
+    }
+
+    # trusted installer proc not found (128) or access denied (1)
+    if ($LASTEXITCODE -eq 128 -or $LASTEXITCODE -eq 1 -or !$checkSvc) {
+        Write-Status -msg 'Failed to stop TrustedInstaller.exe... Using fallback method!' -warningOutput
+        RunAsSystem -Command $command
+        Start-Sleep 1
+        return 
+    }
 
     #convert command to base64 to avoid errors with spaces
     $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
     $base64Command = [Convert]::ToBase64String($bytes)
-
-
-    try {
-        Stop-Service -Name TrustedInstaller -Force -ErrorAction Stop -WarningAction Stop
-    }
-    catch {
-        taskkill /im trustedinstaller.exe /f >$null
-    }
-    
-    # trusted installer proc not found (128) or access denied (1)
-    if ($LASTEXITCODE -eq 128 -or $LASTEXITCODE -eq 1) {
-        Write-Status -msg 'Failed to stop TrustedInstaller.exe... Using fallback method!' -warningOutput
-        Invoke-AsTrustedInstaller -Code $command
-        Start-Sleep 1
-        return 
-    }
 
     #get bin path to revert later
     $service = Get-CimInstance -ClassName Win32_Service -Filter "Name='TrustedInstaller'"
@@ -168,7 +82,7 @@ $env:R = ''
         Stop-Service -Name TrustedInstaller -Force -ErrorAction Stop -WarningAction Stop
     }
     catch {
-        taskkill /im trustedinstaller.exe /f >$null
+        taskkill /im trustedinstaller.exe /f *>$null
     }
     
 }
