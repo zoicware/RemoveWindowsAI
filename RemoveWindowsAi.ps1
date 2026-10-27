@@ -12,7 +12,8 @@ param(
         'DisableRewrite',       
         'RemoveWindowsAITasks',
         'UpdateCleanupCheck',
-        'DisableDefenderAI')]
+        'DisableDefenderAI',
+        'DisableNPUDevice')]
     [array]$Options,
     [switch]$AllOptions,
     [switch]$revertMode,
@@ -3510,6 +3511,47 @@ function Disable-DefenderAI {
     
 }
 
+function Disable-NPU-Device {
+    function Set-NPUDevice {
+        param(
+            [switch]$Enable,
+            [switch]$Disable
+        )
+        try {
+            $className = 'ComputeAccelerator'
+            $classGUID = '{f01a9d53-3ff6-48d2-9f97-c8a7004be10c}'
+            $npuDevice = Get-PnpDevice -ErrorAction Stop | Where-Object { $_.Class -eq $className -or $_.ClassGuid -eq $classGUID } 
+            if ($npuDevice) {
+                Write-Status 'NPU device found!'
+                #https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/pnputil-command-syntax#section-4
+                if ($Disable) {
+                    Write-Status "Disabling NPU: $($npuDevice.FriendlyName)"
+                    $npuDevice | ForEach-Object { pnputil.exe /disable-device $_.InstanceId /force }
+                }
+                elseif ($Enable) {
+                    Write-Status "Enabling NPU: $($npuDevice.FriendlyName)"
+                    $npuDevice | ForEach-Object { pnputil.exe /enable-device $_.InstanceId }
+                }
+            }
+            else {
+                Write-Status 'NPU device NOT found!' -warningOutput
+            }
+        }
+        catch {
+            Write-Status 'Get-PnpDevice failed!' -errorOutput
+        }
+    }
+
+    if ($revert) {
+        Set-NPUDevice -Enable
+    }
+    else {
+        Set-NPUDevice -Disable
+    }
+
+}
+
+
 #===============================================================================================================================
 #
 #                                             CLASSIC APP INSTALL FUNCTIONS
@@ -4085,6 +4127,7 @@ if ($nonInteractive) {
             'RemoveWindowsAITasks' 
             'UpdateCleanupCheck' 
             'DisableDefenderAI'
+            'DisableNPUDevice'
         )
         #remove excluded options from the array
         $activeOptions = if ($ExcludeOptions) {
@@ -4108,6 +4151,7 @@ if ($nonInteractive) {
             'RemoveWindowsAITasks' { Remove-WindowsAI-Tasks }
             'UpdateCleanupCheck' { Update-Cleanup-Check }
             'DisableDefenderAI' { Disable-DefenderAI }
+            'DisableNPUDevice' { Disable-NPU-Device }
         }
     }
 
@@ -4136,6 +4180,7 @@ else {
         'Remove-WindowsAI-Tasks'         = 'Removes Windows AI scheduled tasks from Task Scheduler to prevent AI data collection processes from running.'
         'Update-Cleanup-Check'           = 'Creates a silent scheduled task to run at log-on to check if Windows has been updated... if it has then the script will cleanup newly installed AI features'
         'Disable-DefenderAI'             = 'Disables Windows Defender AI Platform Host process and features.'
+        'Disable-NPU-Device'             = 'Disables the NPU (Neural Processing Unit) used for AI workloads on relavant devices. This could improve power consumption and thermals.'
     }
 
     $window = New-Object System.Windows.Window
@@ -4274,13 +4319,15 @@ else {
         'Disable-Notepad-Rewrite'       
         'Remove-WindowsAI-Tasks'
         'Update-Cleanup-Check'
-        'Disable-DefenderAI'        
+        'Disable-DefenderAI'
+        'Disable-NPU-Device'        
     )
 
     $unchecked = @(
         'Remove-AI-Files'
         'Remove-AI-CBS-Packages'
         'Prevent-AI-Package-Reinstall'
+        'Disable-NPU-Device'
     )
 
     foreach ($func in $functions) {
@@ -4348,7 +4395,7 @@ else {
         $checkboxLabel.VerticalAlignment = 'Center'
         $checkboxPanel.Children.Add($checkboxLabel) | Out-Null
 
-        if ($unchecked -contains $func) {
+        if ($unchecked -contains $func -and !($func -eq 'Disable-NPU-Device')) {
             $warningIcon = New-Object System.Windows.Controls.TextBlock
             $warningIcon.Text = ' ⚠'
             $warningIcon.FontSize = 14
@@ -5062,6 +5109,7 @@ else {
                         'Remove-WindowsAI-Tasks' { Remove-WindowsAI-Tasks }
                         'Update-Cleanup-Check' { Update-Cleanup-Check }
                         'Disable-DefenderAI' { Disable-DefenderAI }
+                        'Disable-NPU-Device' { Disable-NPU-Device }
                         'Install-Classic-Photoviewer' { install-classicapps -app 'photoviewer' }
                         'Install-Classic-Mspaint' { install-classicapps -app 'mspaint' }
                         'Install-Classic-SnippingTool' { install-classicapps -app 'snippingtool' }

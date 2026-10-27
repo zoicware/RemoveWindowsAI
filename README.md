@@ -45,6 +45,8 @@ In Windows 11 22H2 Microsoft began adding AI features like Copilot and Recall. S
      - Creates scheduled task to check if Windows has been updated and if it has, newly installed AI features will be removed
   - **Disable Defender AI**
      - Disables the Defender AI Platform host process and settings
+   - **Disable NPU Device**
+     - Disables the NPU (Neural Processing Unit) on relevant hardware. 
 
  - #### Install Classic Apps
    - These options will allow you to replace the modern AI infested apps with their classic version
@@ -127,6 +129,8 @@ HideAIComponents
 DisableRewrite      
 RemoveWindowsAITasks
 UpdateCleanupCheck
+DisableDefenderAI
+DisableNPUDevice
 ```
 
 **Run Install Classic Apps**
