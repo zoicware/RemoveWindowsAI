@@ -86,3 +86,6 @@
 
 #### Disable Defender AI
 - Windows defender now contains AI agent protection, to disable this feature and the process that always runs the script uses defender powershell cmdlets and IFEO debugger exploit. 
+
+#### Disable NPU Device
+- This will disable the NPU (Neural Processing Unit) on relavant hardware. This is used for AI workloads and disabling it could help lower power draw and/or thermals. If you have a dedicated GPU this would be recommended for AI workloads instead. 
