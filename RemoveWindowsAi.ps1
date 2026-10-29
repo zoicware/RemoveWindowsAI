@@ -1640,22 +1640,39 @@ public class TaskbarUnpinByAumid {
     
     $root = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture'
     $allFX = (Get-ChildItem $root -Recurse).Name | Where-Object { $_ -like '*FxProperties' }
-    #search the fx props for VocalEffectPack and add {1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5 = 1
+    #search the fx props for VocalEffectPack and add {1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5 = 1 disables "voice clarity"
+    #disables "voice focus" {72a32b7b-67c9-4765-9b37-f8b7e779b809},1 = 0
     foreach ($fxPath in $allFX) {
         $keys = Get-ItemProperty "registry::$fxPath"
         foreach ($key in $keys) {
             if ($key | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -like '{*},*' } | Where-Object { $_.Definition -like '*#VocaEffectPack*' }) {
                 Write-Status -msg "$(@('Disabling','Enabling')[$revert]) AI Voice Effects..."
+
                 $regPath = Convert-Path $key.PSPath
+                #also apply subkey to correct location
+                #technically this will always find extra "User" paths but applying the reg key to them shouldnt cause any issues, its just not read from that location
+                $subKeyPaths = Get-ChildItem $key.PSPath | ForEach-Object { Get-ChildItem $_.PSPath -recurse -Depth 1 } | ForEach-Object { if ($_.Name -like '*User') { $_.Name } } #use .Name since we are using reg.exe
                 if ($revert) {
                     #enable
                     $command = "Reg.exe delete '$regPath' /v '{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5' /f"
                     Run-Trusted -command $command -psversion $psversion
+                    if ($subKeyPaths) {
+                        foreach ($subKey in $subKeyPaths) {
+                            $command = "Reg.exe delete '$subKey' /v '{72a32b7b-67c9-4765-9b37-f8b7e779b809},1' /f"
+                            Run-Trusted -command $command -psversion $psversion
+                        }
+                    }
                 }
                 else {
                     #disable
                     $command = "Reg.exe add '$regPath' /v '{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5' /t REG_DWORD /d '1' /f"
                     Run-Trusted -command $command -psversion $psversion
+                    if ($subKeyPaths) {
+                        foreach ($subKey in $subKeyPaths) {
+                            $command = "Reg.exe add '$subKey' /v '{72a32b7b-67c9-4765-9b37-f8b7e779b809},1' /t REG_DWORD /d '0' /f"
+                            Run-Trusted -command $command -psversion $psversion
+                        }
+                    }
                 }
                 
             }
