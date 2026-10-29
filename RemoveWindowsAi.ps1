@@ -366,10 +366,9 @@ if ($EnableLogging) {
     $Global:logPath = "$env:USERPROFILE\RemoveWindowsAI$date.log"
     New-Item $logPath -Force | Out-Null
     Write-Status -msg "Starting Log at [$logPath]"
-    #start and stop the transcript to get the header
+    #start the transcript to get the header
     Start-Transcript -Path $logPath -IncludeInvocationHeader | Out-Null
-    Stop-Transcript | Out-Null
-
+   
     #create info object
     $Global:logInfo = [PSCustomObject]@{
         Info   = $null
@@ -395,22 +394,26 @@ $Global:tempDir = ([System.IO.Path]::GetTempPath())
 
 #=====================================================================================
 
+#takes a custom object or pipe output
+#to capture all streams from a non powershell cmdlet such as reg.exe use *>&1 | Add-logInfo
+#where * redirects all streams to success stream (&1) which is then captured properly by the pipe
 function Add-LogInfo {
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
-        $pipeOutput,
         [string]$logPath,
         $customInfo
     )
+    #early return when enable logging is false
+    if (!$EnableLogging) { return }
 
     $time = (Get-Date -Format o) -replace ':', '.'
     if ($customInfo) {
         $content = "[$time] | Result: $($customInfo.Result) | Additional Info: $($customInfo.Info)"
     }
     else {
+        $pipeOutput = @($input) -join ' ' #use automatic $input variable to capture piped output
         $content = "[$time] | Result: $pipeOutput" 
     }
-    
+   
     Add-Content $logPath -Value $content | Out-Null
 }
 
@@ -5148,13 +5151,16 @@ else {
                     }
                     catch {}  
                     try {
-                        Remove-Item "$($tempDir)ZoicwareRemoveWindowsAI-*1.0.0.0.cab" -Force -ErrorAction SilentlyContinue
+                        Remove-Item "$($tempDir)ZoicwareRemoveWindowsAI-*.cab" -Force -ErrorAction SilentlyContinue
                     }
                     catch {}
 
                     #set executionpolicy back to what it was
                     if ($Global:ogExecutionPolicy) {
                         Reg.exe add $($Global:ogExecutionPolicyPath -replace ':', '') /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
+                    }
+                    if ($EnableLogging) {
+                        Stop-Transcript | Out-Null
                     }
                     Restart-Computer -Force
                 }
@@ -5192,13 +5198,17 @@ try {
 }
 catch {}
 try {
-    Remove-Item "$($tempDir)ZoicwareRemoveWindowsAI-*1.0.0.0.cab" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$($tempDir)ZoicwareRemoveWindowsAI-*.cab" -Force -ErrorAction SilentlyContinue
 }
 catch {}
 
 #set executionpolicy back to what it was
 if ($Global:ogExecutionPolicy) {
     Reg.exe add $($Global:ogExecutionPolicyPath -replace ':', '') /v 'ExecutionPolicy' /t REG_SZ /d $ogExecutionPolicy /f >$null
+}
+
+if ($EnableLogging) {
+    Stop-Transcript | Out-Null
 }
 
 if (!$nonInteractive) {
